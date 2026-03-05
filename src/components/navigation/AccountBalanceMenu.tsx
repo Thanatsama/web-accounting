@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import AccountBalanceWalletRoundedIcon from "@mui/icons-material/AccountBalanceWalletRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import {
@@ -64,6 +64,18 @@ function downloadBackupFile(snapshot: BudgetSnapshot): void {
   anchor.click();
   document.body.removeChild(anchor);
   URL.revokeObjectURL(url);
+}
+
+function isBudgetSnapshot(value: unknown): value is BudgetSnapshot {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<BudgetSnapshot>;
+  return (
+    typeof candidate.accountBalance === "number" &&
+    typeof candidate.monthlyIncome === "number" &&
+    typeof candidate.totalTables === "number" &&
+    Array.isArray(candidate.rows) &&
+    typeof candidate.updatedAt === "number"
+  );
 }
 
 function getRowStartMonth(row: BudgetRow): number {
@@ -134,6 +146,8 @@ export default function AccountBalanceMenu() {
   const [draftBalance, setDraftBalance] = useState("0");
   const [draftMonthlyIncome, setDraftMonthlyIncome] = useState("0");
   const [testMonthValue, setTestMonthValueState] = useState<string>("");
+  const [restoreError, setRestoreError] = useState<string>("");
+  const restoreInputRef = useRef<HTMLInputElement | null>(null);
   const currentDate = useEffectiveCurrentDate();
 
   const isOpen = Boolean(anchorEl);
@@ -267,6 +281,54 @@ export default function AccountBalanceMenu() {
 
   const backupData = () => {
     downloadBackupFile(snapshot);
+  };
+
+  const restoreDataFromFile = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      void (async () => {
+        try {
+          const text = String(reader.result ?? "");
+          const parsed = JSON.parse(text) as { data?: unknown } | unknown;
+          const candidate = (
+            parsed && typeof parsed === "object" && "data" in parsed ? (parsed as { data?: unknown }).data : parsed
+          ) as unknown;
+          if (!isBudgetSnapshot(candidate)) {
+            setRestoreError("ไฟล์ไม่ถูกต้อง: ไม่พบข้อมูล backup ที่รองรับ");
+            return;
+          }
+          const nextSnapshot: BudgetSnapshot = {
+            ...candidate,
+            totalTables: Math.max(1, Number(candidate.totalTables ?? 1)),
+            updatedAt: Date.now(),
+          };
+          await writeBudgetSnapshot(nextSnapshot);
+          void writeBudgetToServer(nextSnapshot);
+          setSnapshot(nextSnapshot);
+          setRestoreError("");
+          window.dispatchEvent(
+            new CustomEvent("account-balance-updated", {
+              detail: { snapshot: nextSnapshot },
+            }),
+          );
+        } catch {
+          setRestoreError("ไฟล์ไม่ถูกต้อง: อ่านหรือแปลงข้อมูลไม่สำเร็จ");
+        } finally {
+          if (restoreInputRef.current) {
+            restoreInputRef.current.value = "";
+          }
+        }
+      })();
+    };
+    reader.readAsText(file);
+  };
+
+  const openRestorePicker = () => {
+    setRestoreError("");
+    restoreInputRef.current?.click();
   };
 
   const saveTestMonth = () => {
@@ -411,7 +473,7 @@ export default function AccountBalanceMenu() {
           </Box>
 
           <Box sx={{ mt: 1.4, pt: 1.2, borderTop: "1px solid rgba(0,0,0,0.08)" }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} mb={1}>
               <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 Data Backup
               </Typography>
@@ -419,6 +481,26 @@ export default function AccountBalanceMenu() {
                 Backup Data
               </Button>
             </Stack>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                Data Restore
+              </Typography>
+              <Button size="small" variant="outlined" color="warning" onClick={openRestorePicker}>
+                Restore Data
+              </Button>
+            </Stack>
+            <input
+              ref={restoreInputRef}
+              type="file"
+              accept="application/json"
+              style={{ display: "none" }}
+              onChange={restoreDataFromFile}
+            />
+            {restoreError && (
+              <Typography variant="caption" sx={{ display: "block", mt: 0.8, color: "error.main" }}>
+                {restoreError}
+              </Typography>
+            )}
           </Box>
         </Box>
       </Popover>

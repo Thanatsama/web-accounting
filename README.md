@@ -41,3 +41,15 @@ src/
 ## Notes
 
 - Designed to be easy to read and extend by keeping theme, layout, and content modules separated.
+
+## Use on another computer (without local run commands)
+
+Deploy with Vercel:
+1. Push this project to GitHub.
+2. Go to [Vercel](https://vercel.com), import the GitHub repo.
+3. Deploy (Vercel handles install/build/start automatically).
+4. Open the Vercel URL from any computer.
+
+Data safety:
+- Use `Backup Data` in the account menu to export JSON.
+- Use `Restore Data` in the same menu on another device to import your data back.
