@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
-import map from "lodash/map";
+import { FormEvent, useEffect, useMemo, useState } from 'react';
+import map from 'lodash/map';
 import {
   Box,
   Button,
@@ -18,15 +18,15 @@ import {
   TextField,
   Theme,
   Typography,
-} from "@mui/material";
-import AddRoundedIcon from "@mui/icons-material/AddRounded";
-import { readBudgetFromServer, writeBudgetToServer } from "@/lib/budgetApi";
-import { getCurrentRoundIndex, getRoundLabel } from "@/lib/budgetCalendar";
-import { BudgetRow, RowStatus } from "@/lib/budgetState";
-import { readBudgetSnapshot, updateBudgetSnapshot, writeBudgetSnapshot } from "@/lib/indexedDbBudget";
-import { useEffectiveCurrentDate } from "@/lib/testingDate";
-import MarketingLayout from "@/components/layout/MarketingLayout";
-import styles from "./page.module.css";
+} from '@mui/material';
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import { readBudgetFromServer, writeBudgetToServer } from '@/lib/budgetApi';
+import { getCurrentRoundIndex, getRoundLabel } from '@/lib/budgetCalendar';
+import { BudgetRow, RowStatus } from '@/lib/budgetState';
+import { readBudgetSnapshot, updateBudgetSnapshot, writeBudgetSnapshot } from '@/lib/indexedDbBudget';
+import { useEffectiveCurrentDate } from '@/lib/testingDate';
+import MarketingLayout from '@/components/layout/MarketingLayout';
+import styles from './page.module.css';
 
 type DisplayRow = {
   id: number;
@@ -39,10 +39,10 @@ type DisplayRow = {
   status: RowStatus;
 };
 
-const STATUS_OPTIONS: RowStatus[] = ["PENDING", "PAID"];
+const STATUS_OPTIONS: RowStatus[] = ['PENDING', 'PAID'];
 
 function formatNumber(value: number): string {
-  return new Intl.NumberFormat("th-TH", {
+  return new Intl.NumberFormat('th-TH', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
@@ -68,11 +68,7 @@ function getRowEndMonth(row: BudgetRow): number {
   return getRowStartMonth(row) + Math.max(1, Math.floor(row.spreadMonths)) - 1;
 }
 
-function buildDefaultExpenseByMonth(
-  spreadMonths: number,
-  expense: number,
-  startMonth: number = 1,
-): Record<string, number> {
+function buildDefaultExpenseByMonth(spreadMonths: number, expense: number, startMonth: number = 1): Record<string, number> {
   const result: Record<string, number> = {};
   for (let i = 0; i < spreadMonths; i += 1) {
     result[String(startMonth + i)] = expense;
@@ -106,7 +102,7 @@ function resolveMonthlyIncomeByMonth(
   tableIndex: number,
 ): number {
   const monthValue = monthlyIncomeByMonth?.[String(tableIndex)];
-  if (typeof monthValue !== "number" || !Number.isFinite(monthValue)) {
+  if (typeof monthValue !== 'number' || !Number.isFinite(monthValue)) {
     return monthlyIncome;
   }
   return monthValue;
@@ -118,22 +114,19 @@ function resolveAccountBalanceByMonth(
   tableIndex: number,
 ): number | null {
   const monthValue = accountBalanceByMonth?.[String(tableIndex)];
-  if (typeof monthValue !== "number" || !Number.isFinite(monthValue)) {
+  if (typeof monthValue !== 'number' || !Number.isFinite(monthValue)) {
     return tableIndex === 1 ? accountBalance : null;
   }
   return monthValue;
 }
 
-function isCustomMonthlyIncomeByMonth(
-  monthlyIncomeByMonth: Record<string, number> | undefined,
-  tableIndex: number,
-): boolean {
+function isCustomMonthlyIncomeByMonth(monthlyIncomeByMonth: Record<string, number> | undefined, tableIndex: number): boolean {
   const value = monthlyIncomeByMonth?.[String(tableIndex)];
-  return typeof value === "number" && Number.isFinite(value);
+  return typeof value === 'number' && Number.isFinite(value);
 }
 
 function parseNumberInput(value: string): number | null {
-  const normalized = value.replace(/[^\d.-]/g, "");
+  const normalized = value.replace(/[^\d.-]/g, '');
   if (!normalized) return null;
   const parsed = Number(normalized);
   if (!Number.isFinite(parsed)) return null;
@@ -141,7 +134,7 @@ function parseNumberInput(value: string): number | null {
 }
 
 function buildDisplayRows(rows: BudgetRow[], tableIndex: number): DisplayRow[] {
-  const result: Omit<DisplayRow, "itemNo">[] = [];
+  const result: Omit<DisplayRow, 'itemNo'>[] = [];
 
   for (let i = 0; i < rows.length; i += 1) {
     const row = rows[i];
@@ -183,27 +176,27 @@ export default function TablePage() {
   const [editingTableIndex, setEditingTableIndex] = useState<number>(1);
   const [editingCanCancel, setEditingCanCancel] = useState(false);
   const [editingMonthIncomeTableIndex, setEditingMonthIncomeTableIndex] = useState<number>(1);
-  const [editingMonthIncomeValue, setEditingMonthIncomeValue] = useState("0");
+  const [editingMonthIncomeValue, setEditingMonthIncomeValue] = useState('0');
 
-  const [detail, setDetail] = useState("");
-  const [expense, setExpense] = useState("0");
-  const [spreadMonths, setSpreadMonths] = useState("1");
-  const [compensation, setCompensation] = useState("0");
-  const [source, setSource] = useState("");
-  const [status, setStatus] = useState<RowStatus>("PENDING");
-  const [editDetail, setEditDetail] = useState("");
-  const [editExpense, setEditExpense] = useState("0");
-  const [editCompensation, setEditCompensation] = useState("0");
-  const [editSource, setEditSource] = useState("");
-  const [editStatus, setEditStatus] = useState<RowStatus>("PENDING");
+  const [detail, setDetail] = useState('');
+  const [expense, setExpense] = useState('0');
+  const [spreadMonths, setSpreadMonths] = useState('1');
+  const [compensation, setCompensation] = useState('0');
+  const [source, setSource] = useState('');
+  const [status, setStatus] = useState<RowStatus>('PENDING');
+  const [editDetail, setEditDetail] = useState('');
+  const [editExpense, setEditExpense] = useState('0');
+  const [editCompensation, setEditCompensation] = useState('0');
+  const [editSource, setEditSource] = useState('');
+  const [editStatus, setEditStatus] = useState<RowStatus>('PENDING');
   const currentDate = useEffectiveCurrentDate();
   const formFieldSx: SxProps<Theme> = {
-    "& .MuiOutlinedInput-root": {
-      borderRadius: "12px",
-      backgroundColor: "#fcfdff",
+    '& .MuiOutlinedInput-root': {
+      borderRadius: '12px',
+      backgroundColor: '#fcfdff',
     },
-    "& .MuiInputBase-input": { py: 1.1 },
-    "& .MuiFormHelperText-root": { mt: 0.6 },
+    '& .MuiInputBase-input': { py: 1.1 },
+    '& .MuiFormHelperText-root': { mt: 0.6 },
   };
 
   const tableIndexes = useMemo(() => createTableIndexes(totalTables), [totalTables]);
@@ -253,30 +246,30 @@ export default function TablePage() {
       }>;
       const nextSnapshot = customEvent.detail?.snapshot;
       if (!nextSnapshot) return;
-      if (typeof nextSnapshot.accountBalance === "number") {
+      if (typeof nextSnapshot.accountBalance === 'number') {
         setOpeningBalance(nextSnapshot.accountBalance);
       }
-      if (typeof nextSnapshot.monthlyIncome === "number") {
+      if (typeof nextSnapshot.monthlyIncome === 'number') {
         setMonthlyIncome(nextSnapshot.monthlyIncome);
       }
-      if (nextSnapshot.accountBalanceByMonth && typeof nextSnapshot.accountBalanceByMonth === "object") {
+      if (nextSnapshot.accountBalanceByMonth && typeof nextSnapshot.accountBalanceByMonth === 'object') {
         setAccountBalanceByMonth(nextSnapshot.accountBalanceByMonth);
       }
-      if (nextSnapshot.monthlyIncomeByMonth && typeof nextSnapshot.monthlyIncomeByMonth === "object") {
+      if (nextSnapshot.monthlyIncomeByMonth && typeof nextSnapshot.monthlyIncomeByMonth === 'object') {
         setMonthlyIncomeByMonth(nextSnapshot.monthlyIncomeByMonth);
       }
       if (Array.isArray(nextSnapshot.rows)) {
         setRows(nextSnapshot.rows);
       }
-      if (typeof nextSnapshot.totalTables === "number") {
+      if (typeof nextSnapshot.totalTables === 'number') {
         setTotalTables(Math.max(1, nextSnapshot.totalTables));
       }
     };
 
-    window.addEventListener("account-balance-updated", onAccountBalanceUpdate);
+    window.addEventListener('account-balance-updated', onAccountBalanceUpdate);
     return () => {
       mounted = false;
-      window.removeEventListener("account-balance-updated", onAccountBalanceUpdate);
+      window.removeEventListener('account-balance-updated', onAccountBalanceUpdate);
     };
   }, []);
 
@@ -284,12 +277,12 @@ export default function TablePage() {
 
   const closeAddDialog = () => {
     setIsAddOpen(false);
-    setDetail("");
-    setExpense("0");
-    setSpreadMonths("1");
-    setCompensation("0");
-    setSource("");
-    setStatus("PENDING");
+    setDetail('');
+    setExpense('0');
+    setSpreadMonths('1');
+    setCompensation('0');
+    setSource('');
+    setStatus('PENDING');
   };
 
   const handleAddRow = (event: FormEvent) => {
@@ -356,7 +349,7 @@ export default function TablePage() {
 
   const updateRowField = (
     rowId: number,
-    patch: Partial<Pick<BudgetRow, "detail" | "status" | "isCancelled">>,
+    patch: Partial<Pick<BudgetRow, 'detail' | 'status' | 'isCancelled'>>,
     monthPatch?: { tableIndex: number; expense: number; compensation: number; source: string; status: RowStatus },
   ) => {
     const updatedAt = nowTimestamp();
@@ -388,10 +381,7 @@ export default function TablePage() {
           },
         };
       });
-      const inferredTotalTables = nextRows.reduce(
-        (maxMonth, row) => Math.max(maxMonth, getRowEndMonth(row)),
-        1,
-      );
+      const inferredTotalTables = nextRows.reduce((maxMonth, row) => Math.max(maxMonth, getRowEndMonth(row)), 1);
       const nextTotalTables = Math.max(totalTables, inferredTotalTables);
       if (nextTotalTables !== totalTables) {
         setTotalTables(nextTotalTables);
@@ -436,15 +426,19 @@ export default function TablePage() {
     if (!Number.isFinite(nextExpense) || nextExpense < 0) return;
     if (!Number.isFinite(nextCompensation) || nextCompensation < 0) return;
 
-    updateRowField(editingRowId, {
-      detail: editDetail,
-    }, {
-      tableIndex: editingTableIndex,
-      expense: nextExpense,
-      compensation: nextCompensation,
-      source: editSource,
-      status: editStatus,
-    });
+    updateRowField(
+      editingRowId,
+      {
+        detail: editDetail,
+      },
+      {
+        tableIndex: editingTableIndex,
+        expense: nextExpense,
+        compensation: nextCompensation,
+        source: editSource,
+        status: editStatus,
+      },
+    );
     closeEditDialog();
   };
 
@@ -464,7 +458,7 @@ export default function TablePage() {
   const closeMonthIncomeDialog = () => {
     setIsMonthIncomeOpen(false);
     setEditingMonthIncomeTableIndex(1);
-    setEditingMonthIncomeValue("0");
+    setEditingMonthIncomeValue('0');
   };
 
   const saveMonthIncomeDialog = () => {
@@ -532,17 +526,10 @@ export default function TablePage() {
       const tableIndex = i + 1;
       const monthIncome = resolveMonthlyIncomeByMonth(monthlyIncome, monthlyIncomeByMonth, tableIndex);
       const fallbackStartBalance = i === 0 ? openingBalance : (endings[i - 1] ?? openingBalance) + monthIncome;
-      const overriddenStartBalance = resolveAccountBalanceByMonth(
-        openingBalance,
-        accountBalanceByMonth,
-        tableIndex,
-      );
+      const overriddenStartBalance = resolveAccountBalanceByMonth(openingBalance, accountBalanceByMonth, tableIndex);
       const startBalance = overriddenStartBalance ?? fallbackStartBalance;
       const displayRows = buildDisplayRows(rows, tableIndex);
-      const endBalance = displayRows.reduce(
-        (running, row) => running + row.compensation - row.expense,
-        startBalance,
-      );
+      const endBalance = displayRows.reduce((running, row) => running + row.compensation - row.expense, startBalance);
       endings.push(endBalance);
     }
     return endings;
@@ -558,11 +545,7 @@ export default function TablePage() {
         const tableIndex = i + 1;
         const monthIncome = resolveMonthlyIncomeByMonth(monthlyIncome, monthlyIncomeByMonth, tableIndex);
         const fallbackStartBalance = prevEnding + monthIncome;
-        const overriddenStartBalance = resolveAccountBalanceByMonth(
-          openingBalance,
-          accountBalanceByMonth,
-          tableIndex,
-        );
+        const overriddenStartBalance = resolveAccountBalanceByMonth(openingBalance, accountBalanceByMonth, tableIndex);
         starts.push(overriddenStartBalance ?? fallbackStartBalance);
       }
     }
@@ -573,9 +556,9 @@ export default function TablePage() {
     <MarketingLayout>
       <Container maxWidth="lg" className={styles.wrapper}>
         <Stack
-          direction={{ xs: "column", md: "row" }}
+          direction={{ xs: 'column', md: 'row' }}
           justifyContent="space-between"
-          alignItems={{ xs: "stretch", md: "center" }}
+          alignItems={{ xs: 'stretch', md: 'center' }}
           gap={2}
           mb={2}
         >
@@ -584,7 +567,7 @@ export default function TablePage() {
               รายการจ่าย
             </Typography>
           </Box>
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.2}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2}>
             <Box className={styles.summaryField}>
               <Typography className={styles.summaryLabel}>จำนวนเดือนทั้งหมด</Typography>
               <Typography className={styles.summaryValue}>{totalTables}</Typography>
@@ -598,18 +581,18 @@ export default function TablePage() {
               onClick={openAddDialog}
               startIcon={<AddRoundedIcon />}
               sx={{
-                borderRadius: "18px",
+                borderRadius: '18px',
                 px: 1.2,
                 py: 0.45,
-                alignSelf:'center',
+                alignSelf: 'center',
                 maxHeight: 48,
-                fontSize: "0.86rem",
+                fontSize: '0.86rem',
                 fontWeight: 600,
-                background: "linear-gradient(135deg, #0071e3, #2b8cff)",
-                boxShadow: "0 4px 12px rgba(0,113,227,0.22)",
-                "&:hover": {
-                  background: "linear-gradient(135deg, #0067d1, #1e7ff0)",
-                  boxShadow: "0 6px 14px rgba(0,113,227,0.28)",
+                background: 'linear-gradient(135deg, #0071e3, #2b8cff)',
+                boxShadow: '0 4px 12px rgba(0,113,227,0.22)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #0067d1, #1e7ff0)',
+                  boxShadow: '0 6px 14px rgba(0,113,227,0.28)',
                 },
               }}
             >
@@ -619,12 +602,7 @@ export default function TablePage() {
         </Stack>
 
         <Box className={styles.archiveToolbar}>
-          <Button
-            size="small"
-            variant="outlined"
-            className={styles.archiveButton}
-            onClick={() => setShowArchive(true)}
-          >
+          <Button size="small" variant="outlined" className={styles.archiveButton} onClick={() => setShowArchive(true)}>
             {`Archive (${archivedTableIndexes.length})`}
           </Button>
         </Box>
@@ -641,11 +619,10 @@ export default function TablePage() {
               runningRowBalance = runningRowBalance + row.compensation - row.expense;
               return { ...row, balanceAfter: runningRowBalance };
             });
-            const remainingThisMonth =
-              monthEndingByMonth[monthArrayIndex] ?? roundStartingBalance;
+            const remainingThisMonth = monthEndingByMonth[monthArrayIndex] ?? roundStartingBalance;
             return (
               <section key={tableIndex} className={styles.tableCard}>
-                <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" className={styles.tableHeadingRow}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" className={styles.tableHeadingRow}>
                   <Box className={styles.tableTitleBlock}>
                     <Typography variant="h6" className={styles.tableHeading}>
                       รอบจ่าย {getRoundLabel(tableIndex)}
@@ -657,28 +634,34 @@ export default function TablePage() {
                   <Box className={styles.monthSummaryGroup}>
                     <Box
                       className={`${styles.monthRemaining} ${styles.monthRemainingClickable} ${
-                        isCustomMonthIncome ? styles.monthRemainingCustom : ""
+                        isCustomMonthIncome ? styles.monthRemainingCustom : ''
                       }`}
                       onClick={() => openMonthIncomeDialog(tableIndex)}
                       role="button"
                       tabIndex={0}
                       onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
+                        if (event.key === 'Enter' || event.key === ' ') {
                           event.preventDefault();
                           openMonthIncomeDialog(tableIndex);
                         }
                       }}
                     >
-                      <Typography className={styles.monthRemainingLabel}>คงเหลือต่อเดือน</Typography>
-                      <Typography className={styles.monthRemainingValue}>
+                      <Typography
+                        className={styles.monthRemainingLabel}
+                        sx={{ color: isCustomMonthIncome ? '#086F3A' : '#38679a' }}
+                      >
+                        คงเหลือต่อเดือน
+                      </Typography>
+                      <Typography
+                        className={styles.monthRemainingValue}
+                        sx={{ color: isCustomMonthIncome ? '#086F3A' : '#38679a' }}
+                      >
                         {formatNumber(remainingThisMonth)} THB
                       </Typography>
                     </Box>
                     <Box className={styles.monthExpenseSummary}>
                       <Typography className={styles.monthExpenseLabel}>สรุปค่าใช้จ่าย</Typography>
-                      <Typography className={styles.monthExpenseValue}>
-                        {formatNumber(totalExpenseThisMonth)} THB
-                      </Typography>
+                      <Typography className={styles.monthExpenseValue}>{formatNumber(totalExpenseThisMonth)} THB</Typography>
                     </Box>
                   </Box>
                 </Stack>
@@ -708,13 +691,13 @@ export default function TablePage() {
                           <td>{formatNumber(row.expense)}</td>
                           <td>{row.monthsLeft}</td>
                           <td>{formatNumber(row.compensation)}</td>
-                          <td>{row.source || "-"}</td>
+                          <td>{row.source || '-'}</td>
                           <td>{formatNumber(row.balanceAfter)}</td>
                           <td>
                             <Chip
                               label={row.status}
                               size="small"
-                              color={row.status === "PAID" ? "success" : "warning"}
+                              color={row.status === 'PAID' ? 'success' : 'warning'}
                               variant="filled"
                             />
                           </td>
@@ -744,8 +727,8 @@ export default function TablePage() {
             paper: {
               sx: {
                 borderRadius: 2,
-                background: "linear-gradient(180deg, #ffffff, #f8fbff)",
-                border: "1px solid rgba(0,0,0,0.08)",
+                background: 'linear-gradient(180deg, #ffffff, #f8fbff)',
+                border: '1px solid rgba(0,0,0,0.08)',
               },
             },
           }}
@@ -755,11 +738,9 @@ export default function TablePage() {
               Archive (อ่านอย่างเดียว)
             </Typography>
           </DialogTitle>
-          <DialogContent sx={{ pt: "8px !important", maxHeight: "72vh" }}>
+          <DialogContent sx={{ pt: '8px !important', maxHeight: '72vh' }}>
             <Stack spacing={1.2}>
-              {archivedTableIndexes.length === 0 && (
-                <Typography color="text.secondary">ยังไม่มีเดือนที่ผ่านมา</Typography>
-              )}
+              {archivedTableIndexes.length === 0 && <Typography color="text.secondary">ยังไม่มีเดือนที่ผ่านมา</Typography>}
               {map(archivedTableIndexes, (tableIndex) => {
                 const displayRows = buildDisplayRows(rows, tableIndex);
                 const monthArrayIndex = tableIndex - 1;
@@ -775,7 +756,11 @@ export default function TablePage() {
 
                 return (
                   <section key={`archive-${tableIndex}`} className={styles.tableCard}>
-                    <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" className={styles.tableHeadingRow}>
+                    <Stack
+                      direction={{ xs: 'column', sm: 'row' }}
+                      justifyContent="space-between"
+                      className={styles.tableHeadingRow}
+                    >
                       <Box className={styles.tableTitleBlock}>
                         <Typography variant="h6" className={styles.tableHeading}>
                           รอบจ่าย {getRoundLabel(tableIndex)}
@@ -785,17 +770,13 @@ export default function TablePage() {
                         </Typography>
                       </Box>
                       <Box className={styles.monthSummaryGroup}>
-                        <Box className={`${styles.monthRemaining} ${isCustomMonthIncome ? styles.monthRemainingCustom : ""}`}>
+                        <Box className={`${styles.monthRemaining} ${isCustomMonthIncome ? styles.monthRemainingCustom : ''}`}>
                           <Typography className={styles.monthRemainingLabel}>คงเหลือต่อเดือน</Typography>
-                          <Typography className={styles.monthRemainingValue}>
-                            {formatNumber(remainingThisMonth)} THB
-                          </Typography>
+                          <Typography className={styles.monthRemainingValue}>{formatNumber(remainingThisMonth)} THB</Typography>
                         </Box>
                         <Box className={styles.monthExpenseSummary}>
                           <Typography className={styles.monthExpenseLabel}>สรุปค่าใช้จ่าย</Typography>
-                          <Typography className={styles.monthExpenseValue}>
-                            {formatNumber(totalExpenseThisMonth)} THB
-                          </Typography>
+                          <Typography className={styles.monthExpenseValue}>{formatNumber(totalExpenseThisMonth)} THB</Typography>
                         </Box>
                       </Box>
                     </Stack>
@@ -821,13 +802,13 @@ export default function TablePage() {
                               <td>{formatNumber(row.expense)}</td>
                               <td>{row.monthsLeft}</td>
                               <td>{formatNumber(row.compensation)}</td>
-                              <td>{row.source || "-"}</td>
+                              <td>{row.source || '-'}</td>
                               <td>{formatNumber(row.balanceAfter)}</td>
                               <td>
                                 <Chip
                                   label={row.status}
                                   size="small"
-                                  color={row.status === "PAID" ? "success" : "warning"}
+                                  color={row.status === 'PAID' ? 'success' : 'warning'}
                                   variant="filled"
                                 />
                               </td>
@@ -862,9 +843,9 @@ export default function TablePage() {
             paper: {
               sx: {
                 borderRadius: 1,
-                background: "linear-gradient(180deg, #ffffff, #f9fbff)",
-                border: "1px solid rgba(0,0,0,0.08)",
-                boxShadow: "0 24px 70px rgba(17, 31, 54, 0.26)",
+                background: 'linear-gradient(180deg, #ffffff, #f9fbff)',
+                border: '1px solid rgba(0,0,0,0.08)',
+                boxShadow: '0 24px 70px rgba(17, 31, 54, 0.26)',
               },
             },
           }}
@@ -872,15 +853,15 @@ export default function TablePage() {
           <form onSubmit={handleAddRow}>
             <DialogTitle sx={{ pb: 1 }}>
               <Stack spacing={0.2}>
-                <Typography component="div" variant="h5" sx={{ fontWeight: 700, letterSpacing: "-0.02em" }}>
+                <Typography component="div" variant="h5" sx={{ fontWeight: 700, letterSpacing: '-0.02em' }}>
                   เพิ่มรายการ
                 </Typography>
-                <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                   กรอกรายละเอียดรายการที่ต้องการเพิ่มในรอบจ่าย
                 </Typography>
               </Stack>
             </DialogTitle>
-            <DialogContent sx={{ pt: "8px !important" }}>
+            <DialogContent sx={{ pt: '8px !important' }}>
               <Stack spacing={1.2} mt={0.5}>
                 <TextField
                   size="small"
@@ -897,7 +878,7 @@ export default function TablePage() {
                   type="number"
                   value={expense}
                   onChange={(event) => setExpense(event.target.value)}
-                  slotProps={{ htmlInput: { min: 0, step: "0.01" } }}
+                  slotProps={{ htmlInput: { min: 0, step: '0.01' } }}
                   sx={formFieldSx}
                 />
                 <TextField
@@ -918,7 +899,7 @@ export default function TablePage() {
                   type="number"
                   value={compensation}
                   onChange={(event) => setCompensation(event.target.value)}
-                  slotProps={{ htmlInput: { min: 0, step: "0.01" } }}
+                  slotProps={{ htmlInput: { min: 0, step: '0.01' } }}
                   sx={formFieldSx}
                 />
                 <TextField
@@ -966,24 +947,24 @@ export default function TablePage() {
             paper: {
               sx: {
                 borderRadius: 1,
-                background: "linear-gradient(180deg, #ffffff, #f9fbff)",
-                border: "1px solid rgba(0,0,0,0.08)",
-                boxShadow: "0 24px 70px rgba(17, 31, 54, 0.26)",
+                background: 'linear-gradient(180deg, #ffffff, #f9fbff)',
+                border: '1px solid rgba(0,0,0,0.08)',
+                boxShadow: '0 24px 70px rgba(17, 31, 54, 0.26)',
               },
             },
           }}
         >
           <DialogTitle sx={{ pb: 1 }}>
             <Stack spacing={0.2}>
-              <Typography component="div" variant="h5" sx={{ fontWeight: 700, letterSpacing: "-0.02em" }}>
+              <Typography component="div" variant="h5" sx={{ fontWeight: 700, letterSpacing: '-0.02em' }}>
                 แก้ไขรายการ
               </Typography>
-                <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                 เดือน {getRoundLabel(editingTableIndex)} (เงินทดแทน/ที่มา แยกตามเดือน)
-                </Typography>
-              </Stack>
+              </Typography>
+            </Stack>
           </DialogTitle>
-          <DialogContent sx={{ pt: "8px !important" }}>
+          <DialogContent sx={{ pt: '8px !important' }}>
             <Stack spacing={1.2} mt={0.5}>
               <TextField
                 size="small"
@@ -1000,7 +981,7 @@ export default function TablePage() {
                 type="number"
                 value={editExpense}
                 onChange={(event) => setEditExpense(event.target.value)}
-                slotProps={{ htmlInput: { min: 0, step: "0.01" } }}
+                slotProps={{ htmlInput: { min: 0, step: '0.01' } }}
                 sx={formFieldSx}
               />
               <TextField
@@ -1010,7 +991,7 @@ export default function TablePage() {
                 type="number"
                 value={editCompensation}
                 onChange={(event) => setEditCompensation(event.target.value)}
-                slotProps={{ htmlInput: { min: 0, step: "0.01" } }}
+                slotProps={{ htmlInput: { min: 0, step: '0.01' } }}
                 sx={formFieldSx}
               />
               <TextField
@@ -1062,9 +1043,9 @@ export default function TablePage() {
             paper: {
               sx: {
                 borderRadius: 2,
-                background: "linear-gradient(180deg, #ffffff, #f8fbff)",
-                border: "1px solid rgba(0,0,0,0.08)",
-                boxShadow: "0 20px 50px rgba(17, 31, 54, 0.24)",
+                background: 'linear-gradient(180deg, #ffffff, #f8fbff)',
+                border: '1px solid rgba(0,0,0,0.08)',
+                boxShadow: '0 20px 50px rgba(17, 31, 54, 0.24)',
               },
             },
           }}
@@ -1073,11 +1054,11 @@ export default function TablePage() {
             <Typography component="div" variant="h6" sx={{ fontWeight: 700 }}>
               ตั้งค่า Monthly Income
             </Typography>
-            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
               รอบ {getRoundLabel(editingMonthIncomeTableIndex)}
             </Typography>
           </DialogTitle>
-          <DialogContent sx={{ pt: "8px !important" }}>
+          <DialogContent sx={{ pt: '8px !important' }}>
             <TextField
               fullWidth
               size="small"
@@ -1088,11 +1069,11 @@ export default function TablePage() {
                 input: {
                   startAdornment: <InputAdornment position="start">THB</InputAdornment>,
                 },
-                htmlInput: { min: 0, step: "0.01" },
+                htmlInput: { min: 0, step: '0.01' },
               }}
               type="number"
             />
-            <Typography variant="caption" sx={{ display: "block", mt: 1, color: "text.secondary" }}>
+            <Typography variant="caption" sx={{ display: 'block', mt: 1, color: 'text.secondary' }}>
               ค่า default มาจาก Monthly Income หลัก และจะบันทึกเมื่อกดปุ่มอัปเดต
             </Typography>
           </DialogContent>
