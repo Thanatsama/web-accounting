@@ -14,6 +14,8 @@ import {
   Stack,
   TextField,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import MarketingLayout from '@/components/layout/MarketingLayout';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
@@ -77,6 +79,8 @@ function getRowEndMonth(row: BudgetRow): number {
 }
 
 export default function PlanPage() {
+  const theme = useTheme();
+  const isMobileView = useMediaQuery(theme.breakpoints.down('sm'));
   const currentDate = useEffectiveCurrentDate();
   const currentMonthValue = useMemo(() => getMonthInputValue(currentDate), [currentDate]);
   const [snapshot, setSnapshot] = useState<BudgetSnapshot>(DEFAULT_BUDGET_SNAPSHOT);
@@ -443,35 +447,40 @@ export default function PlanPage() {
         <Typography className={styles.subtitle}>
           แผนที่ยังไม่เพิ่มเข้า Table จะอยู่ใน Inactive Plans และสามารถจัดการรายแถวได้
         </Typography>
+        {isMobileView && (
+          <Typography className={styles.subtitle}>โหมดมือถือเป็น View Only</Typography>
+        )}
 
         <Box className={styles.panel}>
           <Typography className={styles.sectionTitle}>เพิ่มรายการแผน</Typography>
-          <Stack direction="row" justifyContent="flex-end">
-            <Button
-              variant="contained"
-              onClick={() => {
-                setItemStartMonth(currentMonthValue);
-                setIsAddOpen(true);
-              }}
-              sx={{
-                borderRadius: '18px',
-                px: 1.2,
-                mt: 1,
-                py: 0.5,
-                maxHeight: 48,
-                fontSize: '0.86rem',
-                fontWeight: 600,
-                background: 'linear-gradient(135deg, #0071e3, #2b8cff)',
-                boxShadow: '0 4px 12px rgba(0,113,227,0.22)',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #0067d1, #1e7ff0)',
-                  boxShadow: '0 6px 14px rgba(0,113,227,0.28)',
-                },
-              }}
-            >
-              เพิ่มรายการ
-            </Button>
-          </Stack>
+          {!isMobileView && (
+            <Stack direction="row" justifyContent="flex-end">
+              <Button
+                variant="contained"
+                onClick={() => {
+                  setItemStartMonth(currentMonthValue);
+                  setIsAddOpen(true);
+                }}
+                sx={{
+                  borderRadius: '18px',
+                  px: 1.2,
+                  mt: 1,
+                  py: 0.5,
+                  maxHeight: 48,
+                  fontSize: '0.86rem',
+                  fontWeight: 600,
+                  background: 'linear-gradient(135deg, #0071e3, #2b8cff)',
+                  boxShadow: '0 4px 12px rgba(0,113,227,0.22)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #0067d1, #1e7ff0)',
+                    boxShadow: '0 6px 14px rgba(0,113,227,0.28)',
+                  },
+                }}
+              >
+                เพิ่มรายการ
+              </Button>
+            </Stack>
+          )}
         </Box>
 
         <Box className={`${styles.panel} ${styles.activePanel}`}>
@@ -483,14 +492,12 @@ export default function PlanPage() {
                 <Box key={plan.id} className={styles.itemRow}>
                   <Box>
                     <Typography className={styles.rowTitle}>{plan.detail}</Typography>
-                    <Typography className={styles.rowMeta}>
-                      เริ่ม {getRoundLabel(plan.startMonth)} • สิ้นสุด {getRoundLabel(plan.endMonth)} • {plan.termMonths} เดือน
-                    </Typography>
-                    <Typography className={styles.rowMeta}>
-                      ค่างวด {formatNumber(plan.monthlyPay)} THB • สถานะ {plan.status}
-                    </Typography>
+                    <Typography className={styles.rowMeta}>เริ่ม: {getRoundLabel(plan.startMonth)}</Typography>
+                    <Typography className={styles.rowMeta}>สิ้นสุด: {getRoundLabel(plan.endMonth)}</Typography>
+                    <Typography className={styles.rowMeta}>ระยะเวลาผ่อน: {plan.termMonths} เดือน</Typography>
+                    <Typography className={styles.rowMeta}>ค่างวด: {formatNumber(plan.monthlyPay)} THB</Typography>
                   </Box>
-                  <Stack direction="row" spacing={1}>
+                  {!isMobileView && <Stack direction="row" spacing={1}>
                     <Button
                       variant="outlined"
                       size="small"
@@ -526,7 +533,7 @@ export default function PlanPage() {
                     >
                       ลบแผน
                     </Button>
-                  </Stack>
+                  </Stack>}
                 </Box>
               ))}
           </Box>
@@ -543,14 +550,14 @@ export default function PlanPage() {
               <Box key={`draft-${item.id}`} className={styles.itemRow}>
                 <Box>
                   <Typography className={styles.rowTitle}>{item.name}</Typography>
+                  <Typography className={styles.rowMeta}>เริ่ม: {getRoundLabel(item.startRound)}</Typography>
                   <Typography className={styles.rowMeta}>
-                    เริ่ม {getRoundLabel(item.startRound)} • 0% {item.termMonths} เดือน • ส่วนลด {item.discountPercent}%
+                    สิ้นสุด: {getRoundLabel(item.startRound + item.termMonths - 1)}
                   </Typography>
-                  <Typography className={styles.rowMeta}>
-                    ล่วงหน้า {formatNumber(item.upfront)} THB • ค่างวด {formatNumber(item.monthlyPay)} THB
-                  </Typography>
+                  <Typography className={styles.rowMeta}>ระยะเวลาผ่อน: {item.termMonths} เดือน</Typography>
+                  <Typography className={styles.rowMeta}>ค่างวด: {formatNumber(item.monthlyPay)} THB</Typography>
                 </Box>
-                <Stack direction="row" spacing={1}>
+                {!isMobileView && <Stack direction="row" spacing={1}>
                   <Button
                     variant="contained"
                     size="small"
@@ -569,7 +576,7 @@ export default function PlanPage() {
                   >
                     ลบแผน
                   </Button>
-                </Stack>
+                </Stack>}
               </Box>
             ))}
 
@@ -577,14 +584,12 @@ export default function PlanPage() {
               <Box key={`inactive-${plan.id}`} className={styles.itemRow}>
                 <Box>
                   <Typography className={styles.rowTitle}>{plan.detail}</Typography>
-                  <Typography className={styles.rowMeta}>
-                    เริ่ม {getRoundLabel(plan.startMonth)} • สิ้นสุด {getRoundLabel(plan.endMonth)} • {plan.termMonths} เดือน
-                  </Typography>
-                  <Typography className={styles.rowMeta}>
-                    ค่างวด {formatNumber(plan.monthlyPay)} THB • สถานะ {plan.status}
-                  </Typography>
+                  <Typography className={styles.rowMeta}>เริ่ม: {getRoundLabel(plan.startMonth)}</Typography>
+                  <Typography className={styles.rowMeta}>สิ้นสุด: {getRoundLabel(plan.endMonth)}</Typography>
+                  <Typography className={styles.rowMeta}>ระยะเวลาผ่อน: {plan.termMonths} เดือน</Typography>
+                  <Typography className={styles.rowMeta}>ค่างวด: {formatNumber(plan.monthlyPay)} THB</Typography>
                 </Box>
-                <Stack direction="row" spacing={1}>
+                {!isMobileView && <Stack direction="row" spacing={1}>
                   <Button
                     variant="contained"
                     size="small"
@@ -603,14 +608,14 @@ export default function PlanPage() {
                   >
                     ลบแผน
                   </Button>
-                </Stack>
+                </Stack>}
               </Box>
             ))}
           </Box>
         </Box>
       </Container>
 
-      <Dialog open={isAddOpen} onClose={closeAddDialog} fullWidth maxWidth="md">
+      <Dialog open={isAddOpen && !isMobileView} onClose={closeAddDialog} fullWidth maxWidth="md">
         <DialogTitle sx={{ pb: 0.6 }}>
           <Typography component="div" variant="h6" sx={{ fontWeight: 700 }}>
             เพิ่มรายการแผน
@@ -691,7 +696,7 @@ export default function PlanPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isEditOpen} onClose={closeEditPlanDialog} fullWidth maxWidth="sm">
+      <Dialog open={isEditOpen && !isMobileView} onClose={closeEditPlanDialog} fullWidth maxWidth="sm">
         <DialogTitle sx={{ pb: 0.6 }}>
           <Typography component="div" variant="h6" sx={{ fontWeight: 700 }}>
             แก้ไข Active Plan
@@ -762,7 +767,7 @@ export default function PlanPage() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={deleteTarget !== null} onClose={closeDeletePlanDialog} fullWidth maxWidth="xs">
+      <Dialog open={deleteTarget !== null && !isMobileView} onClose={closeDeletePlanDialog} fullWidth maxWidth="xs">
         <DialogTitle sx={{ pb: 0.6 }}>
           <Typography component="div" variant="h6" sx={{ fontWeight: 700 }}>
             ยืนยันการลบแผน
@@ -781,7 +786,7 @@ export default function PlanPage() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={convertTargetPlanId !== null} onClose={closeConvertPlanDialog} fullWidth maxWidth="xs">
+      <Dialog open={convertTargetPlanId !== null && !isMobileView} onClose={closeConvertPlanDialog} fullWidth maxWidth="xs">
         <DialogTitle sx={{ pb: 0.6 }}>
           <Typography component="div" variant="h6" sx={{ fontWeight: 700 }}>
             ยืนยันการเปลี่ยนเป็นรายการจริง

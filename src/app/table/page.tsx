@@ -5,7 +5,6 @@ import map from 'lodash/map';
 import {
   Box,
   Button,
-  Chip,
   Container,
   Dialog,
   DialogActions,
@@ -18,6 +17,8 @@ import {
   TextField,
   Theme,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import { readBudgetFromServer, writeBudgetToServer } from '@/lib/budgetApi';
@@ -25,6 +26,9 @@ import { getCurrentRoundIndex, getRoundLabel } from '@/lib/budgetCalendar';
 import { BudgetRow, RowStatus } from '@/lib/budgetState';
 import { readBudgetSnapshot, updateBudgetSnapshot, writeBudgetSnapshot } from '@/lib/indexedDbBudget';
 import { useEffectiveCurrentDate } from '@/lib/testingDate';
+import DesktopRowsTable from '@/components/table/DesktopRowsTable';
+import MobileMonthSummary from '@/components/table/MobileMonthSummary';
+import { MonthDisplayRow } from '@/components/table/types';
 import MarketingLayout from '@/components/layout/MarketingLayout';
 import styles from './page.module.css';
 
@@ -162,6 +166,8 @@ function buildDisplayRows(rows: BudgetRow[], tableIndex: number): DisplayRow[] {
 }
 
 export default function TablePage() {
+  const theme = useTheme();
+  const isMobileView = useMediaQuery(theme.breakpoints.down('sm'));
   const [totalTables, setTotalTables] = useState(1);
   const [openingBalance, setOpeningBalance] = useState(0);
   const [accountBalanceByMonth, setAccountBalanceByMonth] = useState<Record<string, number>>({});
@@ -576,36 +582,46 @@ export default function TablePage() {
               <Typography className={styles.summaryLabel}>ยอดคงเหลือ (THB)</Typography>
               <Typography className={styles.summaryValue}>{formatNumber(openingBalance)}</Typography>
             </Box>
-            <Button
-              variant="contained"
-              onClick={openAddDialog}
-              startIcon={<AddRoundedIcon />}
-              sx={{
-                borderRadius: '18px',
-                px: 1.2,
-                py: 0.45,
-                alignSelf: 'center',
-                maxHeight: 48,
-                fontSize: '0.86rem',
-                fontWeight: 600,
-                background: 'linear-gradient(135deg, #0071e3, #2b8cff)',
-                boxShadow: '0 4px 12px rgba(0,113,227,0.22)',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #0067d1, #1e7ff0)',
-                  boxShadow: '0 6px 14px rgba(0,113,227,0.28)',
-                },
-              }}
-            >
-              เพิ่มรายการ
-            </Button>
+            {!isMobileView && (
+              <Button
+                variant="contained"
+                onClick={openAddDialog}
+                startIcon={<AddRoundedIcon />}
+                sx={{
+                  borderRadius: '18px',
+                  px: 1.2,
+                  py: 0.45,
+                  alignSelf: { xs: 'flex-start', sm: 'center' },
+                  maxHeight: 48,
+                  minWidth: { xs: 124, sm: 0 },
+                  fontSize: '0.86rem',
+                  fontWeight: 600,
+                  background: 'linear-gradient(135deg, #0071e3, #2b8cff)',
+                  boxShadow: '0 4px 12px rgba(0,113,227,0.22)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #0067d1, #1e7ff0)',
+                    boxShadow: '0 6px 14px rgba(0,113,227,0.28)',
+                  },
+                }}
+              >
+                เพิ่มรายการ
+              </Button>
+            )}
           </Stack>
         </Stack>
+        {isMobileView && (
+          <Typography className={styles.mobileReadonlyHint}>
+            โหมดมือถือเป็น View Only (สรุปผล) กรุณาใช้หน้าจอใหญ่เพื่อแก้ไขรายการ
+          </Typography>
+        )}
 
-        <Box className={styles.archiveToolbar}>
-          <Button size="small" variant="outlined" className={styles.archiveButton} onClick={() => setShowArchive(true)}>
-            {`Archive (${archivedTableIndexes.length})`}
-          </Button>
-        </Box>
+        {!isMobileView && (
+          <Box className={styles.archiveToolbar}>
+            <Button size="small" variant="outlined" className={styles.archiveButton} onClick={() => setShowArchive(true)}>
+              {`Archive (${archivedTableIndexes.length})`}
+            </Button>
+          </Box>
+        )}
 
         <Box className={styles.tableList}>
           {map(activeTableIndexes, (tableIndex) => {
@@ -615,7 +631,7 @@ export default function TablePage() {
             const roundStartingBalance = roundStartingByMonth[monthArrayIndex] ?? openingBalance;
             const isCustomMonthIncome = isCustomMonthlyIncomeByMonth(monthlyIncomeByMonth, tableIndex);
             let runningRowBalance = roundStartingBalance;
-            const displayRowsWithBalance = map(displayRows, (row) => {
+            const displayRowsWithBalance: MonthDisplayRow[] = map(displayRows, (row) => {
               runningRowBalance = runningRowBalance + row.compensation - row.expense;
               return { ...row, balanceAfter: runningRowBalance };
             });
@@ -636,13 +652,15 @@ export default function TablePage() {
                       className={`${styles.monthRemaining} ${styles.monthRemainingClickable} ${
                         isCustomMonthIncome ? styles.monthRemainingCustom : ''
                       }`}
-                      onClick={() => openMonthIncomeDialog(tableIndex)}
+                      onClick={() => {
+                        if (!isMobileView) openMonthIncomeDialog(tableIndex);
+                      }}
                       role="button"
                       tabIndex={0}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' || event.key === ' ') {
                           event.preventDefault();
-                          openMonthIncomeDialog(tableIndex);
+                          if (!isMobileView) openMonthIncomeDialog(tableIndex);
                         }
                       }}
                     >
@@ -665,54 +683,14 @@ export default function TablePage() {
                     </Box>
                   </Box>
                 </Stack>
-                <div className={styles.tableScroll}>
-                  <table className={styles.dataTable}>
-                    <thead>
-                      <tr>
-                        <th>รายการที่</th>
-                        <th>รายละเอียด</th>
-                        <th>ค่าใช้จ่าย</th>
-                        <th>จำนวนเดือนที่เหลือ</th>
-                        <th>เงินทดแทน</th>
-                        <th>ที่มา</th>
-                        <th>เหลือจ่าย</th>
-                        <th>STATUS</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {map(displayRowsWithBalance, (row) => (
-                        <tr
-                          key={`${tableIndex}-${row.id}`}
-                          className={styles.clickableRow}
-                          onClick={() => openEditDialog(row.id, tableIndex)}
-                        >
-                          <td>{row.itemNo}</td>
-                          <td>{row.detail}</td>
-                          <td>{formatNumber(row.expense)}</td>
-                          <td>{row.monthsLeft}</td>
-                          <td>{formatNumber(row.compensation)}</td>
-                          <td>{row.source || '-'}</td>
-                          <td>{formatNumber(row.balanceAfter)}</td>
-                          <td>
-                            <Chip
-                              label={row.status}
-                              size="small"
-                              color={row.status === 'PAID' ? 'success' : 'warning'}
-                              variant="filled"
-                            />
-                          </td>
-                        </tr>
-                      ))}
-                      {displayRows.length === 0 && (
-                        <tr>
-                          <td colSpan={8} className={styles.emptyCell}>
-                            No rows in this table
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                {!isMobileView && (
+                  <DesktopRowsTable
+                    rows={displayRowsWithBalance}
+                    onRowClick={(rowId) => openEditDialog(rowId, tableIndex)}
+                    formatNumber={formatNumber}
+                  />
+                )}
+                {isMobileView && <MobileMonthSummary rows={displayRowsWithBalance} />}
               </section>
             );
           })}
@@ -749,7 +727,7 @@ export default function TablePage() {
                 const remainingThisMonth = monthEndingByMonth[monthArrayIndex] ?? roundStartingBalance;
                 const isCustomMonthIncome = isCustomMonthlyIncomeByMonth(monthlyIncomeByMonth, tableIndex);
                 let runningRowBalance = roundStartingBalance;
-                const displayRowsWithBalance = map(displayRows, (row) => {
+                const displayRowsWithBalance: MonthDisplayRow[] = map(displayRows, (row) => {
                   runningRowBalance = runningRowBalance + row.compensation - row.expense;
                   return { ...row, balanceAfter: runningRowBalance };
                 });
@@ -780,50 +758,7 @@ export default function TablePage() {
                         </Box>
                       </Box>
                     </Stack>
-                    <div className={styles.tableScroll}>
-                      <table className={styles.dataTable}>
-                        <thead>
-                          <tr>
-                            <th>รายการที่</th>
-                            <th>รายละเอียด</th>
-                            <th>ค่าใช้จ่าย</th>
-                            <th>จำนวนเดือนที่เหลือ</th>
-                            <th>เงินทดแทน</th>
-                            <th>ที่มา</th>
-                            <th>เหลือจ่าย</th>
-                            <th>STATUS</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {map(displayRowsWithBalance, (row) => (
-                            <tr key={`arch-row-${tableIndex}-${row.id}`} className={styles.readonlyRow}>
-                              <td>{row.itemNo}</td>
-                              <td>{row.detail}</td>
-                              <td>{formatNumber(row.expense)}</td>
-                              <td>{row.monthsLeft}</td>
-                              <td>{formatNumber(row.compensation)}</td>
-                              <td>{row.source || '-'}</td>
-                              <td>{formatNumber(row.balanceAfter)}</td>
-                              <td>
-                                <Chip
-                                  label={row.status}
-                                  size="small"
-                                  color={row.status === 'PAID' ? 'success' : 'warning'}
-                                  variant="filled"
-                                />
-                              </td>
-                            </tr>
-                          ))}
-                          {displayRows.length === 0 && (
-                            <tr>
-                              <td colSpan={8} className={styles.emptyCell}>
-                                No rows in this table
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
+                    <DesktopRowsTable rows={displayRowsWithBalance} readonly formatNumber={formatNumber} />
                   </section>
                 );
               })}

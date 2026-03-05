@@ -1,0 +1,54 @@
+.mobileSummaryCard {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  padding: 0.62rem;
+  background: linear-gradient(150deg, #f9fbff, #ffffff);
+}
+
+.mobileSummaryLabel {
+  font-size: 0.8rem;
+  color: #5c6677;
+}
+
+.mobileSummaryValue {
+  font-size: 0.87rem;
+  font-weight: 700;
+}
+
+.mobileSummarySubtle {
+  margin-top: 0.38rem;
+  font-size: 0.75rem;
+  color: #6f7888;
+}
+
+.mobileItemRow {
+  padding: 0.42rem 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.mobileItemRow:last-child {
+  border-bottom: none;
+}
+
+.mobileItemTitle {
+  font-size: 0.84rem;
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+}
+
+.mobileStatus {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.16rem 0.42rem;
+  border-radius: 999px;
+}
+
+.mobileStatusPaid {
+  color: #0c7b42;
+  background: rgba(12, 123, 66, 0.16);
+}
+
+.mobileStatusPending {
+  color: #9a5407;
+  background: rgba(236, 145, 27, 0.18);
+}

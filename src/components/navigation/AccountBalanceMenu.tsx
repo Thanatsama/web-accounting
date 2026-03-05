@@ -13,6 +13,8 @@ import {
   TextField,
   Tooltip,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import { readBudgetFromServer, writeBudgetToServer } from "@/lib/budgetApi";
 import { getCurrentRoundIndex, getMonthInputValue } from "@/lib/budgetCalendar";
@@ -140,6 +142,8 @@ function buildDisplayRows(rows: BudgetRow[], tableIndex: number): Array<{ expens
 }
 
 export default function AccountBalanceMenu() {
+  const theme = useTheme();
+  const isMobileView = useMediaQuery(theme.breakpoints.down("sm"));
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [snapshot, setSnapshot] = useState<BudgetSnapshot>(DEFAULT_BUDGET_SNAPSHOT);
   const [isEditing, setIsEditing] = useState(false);
@@ -381,7 +385,7 @@ export default function AccountBalanceMenu() {
             <Typography variant="subtitle2" sx={{ color: "text.secondary" }}>
               Account Balance
             </Typography>
-            {!isEditing && (
+            {!isEditing && !isMobileView && (
               <Tooltip title="Edit balance">
                 <IconButton size="small" onClick={startEdit} aria-label="Edit account balance">
                   <EditRoundedIcon fontSize="small" />
@@ -411,7 +415,7 @@ export default function AccountBalanceMenu() {
             </Stack>
           )}
 
-          {isEditing && (
+          {isEditing && !isMobileView && (
             <Stack spacing={1.5}>
               <TextField
                 size="small"
@@ -449,59 +453,63 @@ export default function AccountBalanceMenu() {
             </Stack>
           )}
 
-          <Box sx={{ mt: 1.8, pt: 1.2, borderTop: "1px solid rgba(0,0,0,0.08)" }}>
-            <Typography variant="body2" sx={{ color: "text.secondary", mb: 0.8 }}>
-              Test Current Month
-            </Typography>
-            <Stack spacing={1}>
-              <TextField
-                size="small"
-                type="month"
-                value={testMonthValue}
-                onChange={(event) => setTestMonthValueState(event.target.value)}
-                slotProps={{ htmlInput: { min: getMonthInputValue(new Date(2026, 2, 1)) } }}
-              />
-              <Stack direction="row" spacing={1} justifyContent="flex-end">
-                <Button size="small" onClick={resetTestMonth}>
-                  Reset
-                </Button>
-                <Button size="small" variant="contained" onClick={saveTestMonth}>
-                  Apply
+          {!isMobileView && (
+            <Box sx={{ mt: 1.8, pt: 1.2, borderTop: "1px solid rgba(0,0,0,0.08)" }}>
+              <Typography variant="body2" sx={{ color: "text.secondary", mb: 0.8 }}>
+                Test Current Month
+              </Typography>
+              <Stack spacing={1}>
+                <TextField
+                  size="small"
+                  type="month"
+                  value={testMonthValue}
+                  onChange={(event) => setTestMonthValueState(event.target.value)}
+                  slotProps={{ htmlInput: { min: getMonthInputValue(new Date(2026, 2, 1)) } }}
+                />
+                <Stack direction="row" spacing={1} justifyContent="flex-end">
+                  <Button size="small" onClick={resetTestMonth}>
+                    Reset
+                  </Button>
+                  <Button size="small" variant="contained" onClick={saveTestMonth}>
+                    Apply
+                  </Button>
+                </Stack>
+              </Stack>
+            </Box>
+          )}
+
+          {!isMobileView && (
+            <Box sx={{ mt: 1.4, pt: 1.2, borderTop: "1px solid rgba(0,0,0,0.08)" }}>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} mb={1}>
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                  Data Backup
+                </Typography>
+                <Button size="small" variant="outlined" onClick={backupData}>
+                  Backup Data
                 </Button>
               </Stack>
-            </Stack>
-          </Box>
-
-          <Box sx={{ mt: 1.4, pt: 1.2, borderTop: "1px solid rgba(0,0,0,0.08)" }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} mb={1}>
-              <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                Data Backup
-              </Typography>
-              <Button size="small" variant="outlined" onClick={backupData}>
-                Backup Data
-              </Button>
-            </Stack>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
-              <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                Data Restore
-              </Typography>
-              <Button size="small" variant="outlined" color="warning" onClick={openRestorePicker}>
-                Restore Data
-              </Button>
-            </Stack>
-            <input
-              ref={restoreInputRef}
-              type="file"
-              accept="application/json"
-              style={{ display: "none" }}
-              onChange={restoreDataFromFile}
-            />
-            {restoreError && (
-              <Typography variant="caption" sx={{ display: "block", mt: 0.8, color: "error.main" }}>
-                {restoreError}
-              </Typography>
-            )}
-          </Box>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                  Data Restore
+                </Typography>
+                <Button size="small" variant="outlined" color="warning" onClick={openRestorePicker}>
+                  Restore Data
+                </Button>
+              </Stack>
+              <input
+                ref={restoreInputRef}
+                type="file"
+                accept="application/json"
+                style={{ display: "none" }}
+                onChange={restoreDataFromFile}
+              />
+              {restoreError && (
+                <Typography variant="caption" sx={{ display: "block", mt: 0.8, color: "error.main" }}>
+                  {restoreError}
+                </Typography>
+              )}
+            </Box>
+          )}
         </Box>
       </Popover>
     </>

@@ -153,46 +153,73 @@
   color: #794804;
 }
 
-.tableScroll {
-  width: 100%;
-  overflow-x: auto;
+.mobileReadonlyHint {
+  margin-top: -0.3rem;
+  margin-bottom: 0.65rem;
+  font-size: 0.78rem;
+  color: #66748a;
 }
 
-.dataTable {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 840px;
-  background: #fff;
-}
+@media (max-width: 640px) {
+  .wrapper {
+    padding-top: 2.8rem;
+    padding-bottom: 1.25rem;
+  }
 
-.dataTable th,
-.dataTable td {
-  border: 1px solid #d9d9df;
-  padding: 0.6rem 0.55rem;
-  text-align: center;
-  vertical-align: middle;
-  white-space: nowrap;
-}
+  .title {
+    font-size: clamp(1.9rem, 8vw, 2.5rem);
+    line-height: 1.08;
+  }
 
-.dataTable th {
-  background: #f5f6f8;
-  font-weight: 700;
-}
+  .summaryField {
+    min-width: 0;
+    width: 100%;
+    padding: 0.5rem 0.72rem;
+  }
 
-.clickableRow {
-  cursor: pointer;
-}
+  .archiveToolbar {
+    justify-content: center;
+    margin-bottom: 0.65rem;
+  }
 
-.clickableRow:hover td {
-  background: #f7faff;
-}
+  .tableCard {
+    border-radius: 14px;
+    padding: 0.62rem;
+  }
 
-.readonlyRow td {
-  background: #fcfcfe;
-}
+  .tableHeadingRow {
+    align-items: stretch;
+    padding: 0 0.08rem 0.35rem;
+  }
 
-.emptyCell {
-  color: #7b7b81;
-  text-align: center;
-  padding: 0.95rem;
+  .tableHeading {
+    font-size: 1.15rem;
+    padding-inline: 0;
+  }
+
+  .roundBaseLabel {
+    padding-left: 0;
+    font-size: 0.76rem;
+  }
+
+  .monthSummaryGroup {
+    width: 100%;
+    gap: 0.42rem;
+  }
+
+  .monthRemaining,
+  .monthExpenseSummary {
+    flex: 1;
+    min-width: 0;
+    padding: 0.4rem 0.58rem;
+  }
+
+  .monthRemainingValue,
+  .monthExpenseValue {
+    font-size: 0.9rem;
+  }
+
+  .monthRemainingClickable {
+    cursor: default;
+  }
 }

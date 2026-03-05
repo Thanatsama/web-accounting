@@ -1,0 +1,43 @@
+.tableScroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.dataTable {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 840px;
+  background: #fff;
+}
+
+.dataTable th,
+.dataTable td {
+  border: 1px solid #d9d9df;
+  padding: 0.6rem 0.55rem;
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.dataTable th {
+  background: #f5f6f8;
+  font-weight: 700;
+}
+
+.clickableRow {
+  cursor: pointer;
+}
+
+.clickableRow:hover td {
+  background: #f7faff;
+}
+
+.readonlyRow td {
+  background: #fcfcfe;
+}
+
+.emptyCell {
+  color: #7b7b81;
+  text-align: center;
+  padding: 0.95rem;
+}
