@@ -1,0 +1,157 @@
+.wrapper {
+  padding-top: 4.5rem;
+  padding-bottom: 2rem;
+}
+
+.title {
+  font-size: clamp(2rem, 4vw, 3.2rem);
+}
+
+.subtitle {
+  color: #6e6e73;
+  margin-top: 0.5rem;
+}
+
+.panel {
+  margin-top: 1rem;
+  padding: 1.1rem;
+  border-radius: 20px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: linear-gradient(145deg, #ffffff, #f7faff);
+  box-shadow: 0 18px 48px rgba(29, 46, 74, 0.08);
+}
+
+.activePanel {
+  border-color: rgba(7, 137, 79, 0.22);
+  background: linear-gradient(145deg, #f5fff9, #ffffff);
+}
+
+.inactivePanel {
+  border-color: rgba(198, 124, 7, 0.24);
+  background: linear-gradient(145deg, #fffaf2, #ffffff);
+}
+
+.sectionTitle {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #3f4b62;
+  margin-bottom: 5px !important;
+}
+
+.divider {
+  margin: 5px 0 5px 0 !important;
+}
+
+.itemForm {
+  margin-top: 0.65rem;
+}
+
+.itemsBox {
+  margin-top: 0.9rem;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  padding: 0.65rem;
+  background: #fff;
+}
+
+.itemRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid rgba(35, 45, 66, 0.14);
+}
+
+.itemRow:last-child {
+  border-bottom: none;
+}
+
+.rowTitle {
+  font-weight: 700;
+}
+
+.rowMeta {
+  color: #697286;
+  font-size: 0.82rem;
+}
+
+.emptyText {
+  color: #6e7787;
+}
+
+.summaryGrid {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.summaryCard {
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: linear-gradient(145deg, #ffffff, #fbfcfe);
+  padding: 0.8rem;
+}
+
+.label {
+  color: #647084;
+  font-size: 0.82rem;
+}
+
+.value {
+  margin-top: 0.2rem;
+  font-weight: 700;
+}
+
+.termGrid {
+  margin-top: 0.65rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.termCard {
+  text-align: left;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: #fff;
+  padding: 0.75rem;
+  cursor: pointer;
+}
+
+.termCardActive {
+  border-color: rgba(0, 113, 227, 0.6);
+  box-shadow: 0 0 0 2px rgba(0, 113, 227, 0.14);
+}
+
+.termTitle {
+  font-weight: 700;
+}
+
+.termValue {
+  color: #5f697a;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 1024px) {
+  .summaryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .termGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .itemRow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .summaryGrid,
+  .termGrid {
+    grid-template-columns: 1fr;
+  }
+}

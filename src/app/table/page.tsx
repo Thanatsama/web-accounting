@@ -1,0 +1,1110 @@
+"use client";
+
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import map from "lodash/map";
+import {
+  Box,
+  Button,
+  Chip,
+  Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  InputAdornment,
+  MenuItem,
+  Stack,
+  SxProps,
+  TextField,
+  Theme,
+  Typography,
+} from "@mui/material";
+import AddRoundedIcon from "@mui/icons-material/AddRounded";
+import { readBudgetFromServer, writeBudgetToServer } from "@/lib/budgetApi";
+import { getCurrentRoundIndex, getRoundLabel } from "@/lib/budgetCalendar";
+import { BudgetRow, RowStatus } from "@/lib/budgetState";
+import { readBudgetSnapshot, updateBudgetSnapshot, writeBudgetSnapshot } from "@/lib/indexedDbBudget";
+import { useEffectiveCurrentDate } from "@/lib/testingDate";
+import MarketingLayout from "@/components/layout/MarketingLayout";
+import styles from "./page.module.css";
+
+type DisplayRow = {
+  id: number;
+  itemNo: number;
+  detail: string;
+  expense: number;
+  monthsLeft: number;
+  compensation: number;
+  source: string;
+  status: RowStatus;
+};
+
+const STATUS_OPTIONS: RowStatus[] = ["PENDING", "PAID"];
+
+function formatNumber(value: number): string {
+  return new Intl.NumberFormat("th-TH", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function createTableIndexes(total: number): number[] {
+  const result: number[] = [];
+  for (let i = 1; i <= total; i += 1) {
+    result.push(i);
+  }
+  return result;
+}
+
+function nowTimestamp(): number {
+  return new Date().getTime();
+}
+
+function getRowStartMonth(row: BudgetRow): number {
+  return Math.max(1, Math.floor(row.startMonth ?? 1));
+}
+
+function getRowEndMonth(row: BudgetRow): number {
+  return getRowStartMonth(row) + Math.max(1, Math.floor(row.spreadMonths)) - 1;
+}
+
+function buildDefaultExpenseByMonth(
+  spreadMonths: number,
+  expense: number,
+  startMonth: number = 1,
+): Record<string, number> {
+  const result: Record<string, number> = {};
+  for (let i = 0; i < spreadMonths; i += 1) {
+    result[String(startMonth + i)] = expense;
+  }
+  return result;
+}
+
+function resolveExpenseByMonth(row: BudgetRow, tableIndex: number): number {
+  const monthKey = String(tableIndex);
+  return row.expenseByMonth?.[monthKey] ?? row.expense;
+}
+
+function resolveCompensationByMonth(row: BudgetRow, tableIndex: number): number {
+  const monthKey = String(tableIndex);
+  return row.compensationByMonth?.[monthKey] ?? row.compensation;
+}
+
+function resolveSourceByMonth(row: BudgetRow, tableIndex: number): string {
+  const monthKey = String(tableIndex);
+  return row.sourceByMonth?.[monthKey] ?? row.source;
+}
+
+function resolveStatusByMonth(row: BudgetRow, tableIndex: number): RowStatus {
+  const monthKey = String(tableIndex);
+  return row.statusByMonth?.[monthKey] ?? row.status;
+}
+
+function resolveMonthlyIncomeByMonth(
+  monthlyIncome: number,
+  monthlyIncomeByMonth: Record<string, number> | undefined,
+  tableIndex: number,
+): number {
+  const monthValue = monthlyIncomeByMonth?.[String(tableIndex)];
+  if (typeof monthValue !== "number" || !Number.isFinite(monthValue)) {
+    return monthlyIncome;
+  }
+  return monthValue;
+}
+
+function resolveAccountBalanceByMonth(
+  accountBalance: number,
+  accountBalanceByMonth: Record<string, number> | undefined,
+  tableIndex: number,
+): number | null {
+  const monthValue = accountBalanceByMonth?.[String(tableIndex)];
+  if (typeof monthValue !== "number" || !Number.isFinite(monthValue)) {
+    return tableIndex === 1 ? accountBalance : null;
+  }
+  return monthValue;
+}
+
+function isCustomMonthlyIncomeByMonth(
+  monthlyIncomeByMonth: Record<string, number> | undefined,
+  tableIndex: number,
+): boolean {
+  const value = monthlyIncomeByMonth?.[String(tableIndex)];
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function parseNumberInput(value: string): number | null {
+  const normalized = value.replace(/[^\d.-]/g, "");
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed)) return null;
+  return parsed;
+}
+
+function buildDisplayRows(rows: BudgetRow[], tableIndex: number): DisplayRow[] {
+  const result: Omit<DisplayRow, "itemNo">[] = [];
+
+  for (let i = 0; i < rows.length; i += 1) {
+    const row = rows[i];
+    if (row.isCancelled) continue;
+    const startMonth = getRowStartMonth(row);
+    const endMonth = getRowEndMonth(row);
+    if (tableIndex >= startMonth && tableIndex <= endMonth) {
+      result.push({
+        id: row.id,
+        detail: row.detail,
+        expense: resolveExpenseByMonth(row, tableIndex),
+        monthsLeft: endMonth - tableIndex + 1,
+        compensation: resolveCompensationByMonth(row, tableIndex),
+        source: resolveSourceByMonth(row, tableIndex),
+        status: resolveStatusByMonth(row, tableIndex),
+      });
+    }
+  }
+
+  const sortedByMonthsLeft = [...result].sort((a, b) => a.monthsLeft - b.monthsLeft);
+  return map(sortedByMonthsLeft, (row, index) => ({
+    ...row,
+    itemNo: index + 1,
+  }));
+}
+
+export default function TablePage() {
+  const [totalTables, setTotalTables] = useState(1);
+  const [openingBalance, setOpeningBalance] = useState(0);
+  const [accountBalanceByMonth, setAccountBalanceByMonth] = useState<Record<string, number>>({});
+  const [monthlyIncome, setMonthlyIncome] = useState(0);
+  const [monthlyIncomeByMonth, setMonthlyIncomeByMonth] = useState<Record<string, number>>({});
+  const [rows, setRows] = useState<BudgetRow[]>([]);
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isMonthIncomeOpen, setIsMonthIncomeOpen] = useState(false);
+  const [showArchive, setShowArchive] = useState(false);
+  const [editingRowId, setEditingRowId] = useState<number | null>(null);
+  const [editingTableIndex, setEditingTableIndex] = useState<number>(1);
+  const [editingCanCancel, setEditingCanCancel] = useState(false);
+  const [editingMonthIncomeTableIndex, setEditingMonthIncomeTableIndex] = useState<number>(1);
+  const [editingMonthIncomeValue, setEditingMonthIncomeValue] = useState("0");
+
+  const [detail, setDetail] = useState("");
+  const [expense, setExpense] = useState("0");
+  const [spreadMonths, setSpreadMonths] = useState("1");
+  const [compensation, setCompensation] = useState("0");
+  const [source, setSource] = useState("");
+  const [status, setStatus] = useState<RowStatus>("PENDING");
+  const [editDetail, setEditDetail] = useState("");
+  const [editExpense, setEditExpense] = useState("0");
+  const [editCompensation, setEditCompensation] = useState("0");
+  const [editSource, setEditSource] = useState("");
+  const [editStatus, setEditStatus] = useState<RowStatus>("PENDING");
+  const currentDate = useEffectiveCurrentDate();
+  const formFieldSx: SxProps<Theme> = {
+    "& .MuiOutlinedInput-root": {
+      borderRadius: "12px",
+      backgroundColor: "#fcfdff",
+    },
+    "& .MuiInputBase-input": { py: 1.1 },
+    "& .MuiFormHelperText-root": { mt: 0.6 },
+  };
+
+  const tableIndexes = useMemo(() => createTableIndexes(totalTables), [totalTables]);
+  const currentRoundIndex = useMemo(() => getCurrentRoundIndex(totalTables, currentDate), [totalTables, currentDate]);
+  const activeTableIndexes = useMemo(
+    () => tableIndexes.filter((index) => index >= currentRoundIndex),
+    [tableIndexes, currentRoundIndex],
+  );
+  const archivedTableIndexes = useMemo(
+    () => tableIndexes.filter((index) => index < currentRoundIndex).sort((a, b) => b - a),
+    [tableIndexes, currentRoundIndex],
+  );
+
+  useEffect(() => {
+    let mounted = true;
+
+    const hydrate = async () => {
+      const local = await readBudgetSnapshot();
+      let nextSnapshot = local;
+      const fromServer = await readBudgetFromServer();
+      if (fromServer && fromServer.updatedAt > local.updatedAt) {
+        nextSnapshot = fromServer;
+        await writeBudgetSnapshot(fromServer);
+      }
+
+      if (!mounted) return;
+      setRows(nextSnapshot.rows);
+      setTotalTables(Math.max(1, nextSnapshot.totalTables));
+      setOpeningBalance(nextSnapshot.accountBalance);
+      setAccountBalanceByMonth(nextSnapshot.accountBalanceByMonth ?? {});
+      setMonthlyIncome(nextSnapshot.monthlyIncome);
+      setMonthlyIncomeByMonth(nextSnapshot.monthlyIncomeByMonth ?? {});
+    };
+
+    void hydrate();
+
+    const onAccountBalanceUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent<{
+        snapshot?: {
+          accountBalance?: number;
+          accountBalanceByMonth?: Record<string, number>;
+          monthlyIncome?: number;
+          monthlyIncomeByMonth?: Record<string, number>;
+          totalTables?: number;
+          rows?: BudgetRow[];
+        };
+      }>;
+      const nextSnapshot = customEvent.detail?.snapshot;
+      if (!nextSnapshot) return;
+      if (typeof nextSnapshot.accountBalance === "number") {
+        setOpeningBalance(nextSnapshot.accountBalance);
+      }
+      if (typeof nextSnapshot.monthlyIncome === "number") {
+        setMonthlyIncome(nextSnapshot.monthlyIncome);
+      }
+      if (nextSnapshot.accountBalanceByMonth && typeof nextSnapshot.accountBalanceByMonth === "object") {
+        setAccountBalanceByMonth(nextSnapshot.accountBalanceByMonth);
+      }
+      if (nextSnapshot.monthlyIncomeByMonth && typeof nextSnapshot.monthlyIncomeByMonth === "object") {
+        setMonthlyIncomeByMonth(nextSnapshot.monthlyIncomeByMonth);
+      }
+      if (Array.isArray(nextSnapshot.rows)) {
+        setRows(nextSnapshot.rows);
+      }
+      if (typeof nextSnapshot.totalTables === "number") {
+        setTotalTables(Math.max(1, nextSnapshot.totalTables));
+      }
+    };
+
+    window.addEventListener("account-balance-updated", onAccountBalanceUpdate);
+    return () => {
+      mounted = false;
+      window.removeEventListener("account-balance-updated", onAccountBalanceUpdate);
+    };
+  }, []);
+
+  const openAddDialog = () => setIsAddOpen(true);
+
+  const closeAddDialog = () => {
+    setIsAddOpen(false);
+    setDetail("");
+    setExpense("0");
+    setSpreadMonths("1");
+    setCompensation("0");
+    setSource("");
+    setStatus("PENDING");
+  };
+
+  const handleAddRow = (event: FormEvent) => {
+    event.preventDefault();
+    void (async () => {
+      const expenseNumber = Number(expense);
+      const spreadNumber = Number(spreadMonths);
+      const compensationNumber = Number(compensation);
+
+      if (!Number.isFinite(expenseNumber) || expenseNumber < 0) return;
+      if (!Number.isFinite(spreadNumber) || spreadNumber < 1) return;
+      if (!Number.isFinite(compensationNumber) || compensationNumber < 0) return;
+
+      const normalizedSpread = Math.floor(spreadNumber);
+      const trimmedDetail = detail.trim();
+
+      const newRow: BudgetRow = {
+        id: nowTimestamp(),
+        detail: trimmedDetail || `รายการ ${rows.length + 1}`,
+        expense: expenseNumber,
+        expenseByMonth: buildDefaultExpenseByMonth(normalizedSpread, expenseNumber, 1),
+        startMonth: 1,
+        spreadMonths: normalizedSpread,
+        compensation: compensationNumber,
+        source: source.trim(),
+        status,
+      };
+
+      const nextSnapshot = await updateBudgetSnapshot((current) => {
+        const nextRows = [...current.rows, newRow];
+        const rowEndMonth = getRowEndMonth(newRow);
+        return {
+          ...current,
+          rows: nextRows,
+          totalTables: Math.max(current.totalTables, rowEndMonth, 1),
+          updatedAt: nowTimestamp(),
+        };
+      });
+
+      setRows(nextSnapshot.rows);
+      setTotalTables(nextSnapshot.totalTables);
+      setOpeningBalance(nextSnapshot.accountBalance);
+      setAccountBalanceByMonth(nextSnapshot.accountBalanceByMonth ?? {});
+      setMonthlyIncome(nextSnapshot.monthlyIncome);
+      setMonthlyIncomeByMonth(nextSnapshot.monthlyIncomeByMonth ?? {});
+      void writeBudgetToServer(nextSnapshot);
+      closeAddDialog();
+    })();
+  };
+
+  const saveRowsNow = (nextRows: BudgetRow[], nextTotalTables: number, updatedAt: number) => {
+    const snapshot = {
+      accountBalance: openingBalance,
+      accountBalanceByMonth,
+      monthlyIncome,
+      monthlyIncomeByMonth,
+      totalTables: Math.max(1, nextTotalTables),
+      rows: nextRows,
+      updatedAt,
+    };
+    void writeBudgetSnapshot(snapshot);
+    void writeBudgetToServer(snapshot);
+  };
+
+  const updateRowField = (
+    rowId: number,
+    patch: Partial<Pick<BudgetRow, "detail" | "status" | "isCancelled">>,
+    monthPatch?: { tableIndex: number; expense: number; compensation: number; source: string; status: RowStatus },
+  ) => {
+    const updatedAt = nowTimestamp();
+    setRows((prev) => {
+      const nextRows = map(prev, (row) => {
+        if (row.id !== rowId) return row;
+
+        if (!monthPatch) return { ...row, ...patch };
+
+        const monthKey = String(monthPatch.tableIndex);
+        return {
+          ...row,
+          ...patch,
+          expenseByMonth: {
+            ...(row.expenseByMonth ?? {}),
+            [monthKey]: monthPatch.expense,
+          },
+          compensationByMonth: {
+            ...(row.compensationByMonth ?? {}),
+            [monthKey]: monthPatch.compensation,
+          },
+          sourceByMonth: {
+            ...(row.sourceByMonth ?? {}),
+            [monthKey]: monthPatch.source,
+          },
+          statusByMonth: {
+            ...(row.statusByMonth ?? {}),
+            [monthKey]: monthPatch.status,
+          },
+        };
+      });
+      const inferredTotalTables = nextRows.reduce(
+        (maxMonth, row) => Math.max(maxMonth, getRowEndMonth(row)),
+        1,
+      );
+      const nextTotalTables = Math.max(totalTables, inferredTotalTables);
+      if (nextTotalTables !== totalTables) {
+        setTotalTables(nextTotalTables);
+      }
+      saveRowsNow(nextRows, nextTotalTables, updatedAt);
+      return nextRows;
+    });
+  };
+
+  const openEditDialog = (rowId: number, tableIndex: number) => {
+    const target = rows.find((row) => row.id === rowId);
+    if (!target) return;
+
+    const monthExpense = resolveExpenseByMonth(target, tableIndex);
+    const monthCompensation = resolveCompensationByMonth(target, tableIndex);
+    const monthSource = resolveSourceByMonth(target, tableIndex);
+    const monthStatus = resolveStatusByMonth(target, tableIndex);
+
+    setEditingRowId(target.id);
+    setEditingTableIndex(tableIndex);
+    setEditDetail(target.detail);
+    setEditExpense(String(monthExpense));
+    setEditCompensation(String(monthCompensation));
+    setEditSource(monthSource);
+    setEditStatus(monthStatus);
+    setEditingCanCancel(Boolean(target.planMeta) && !target.isCancelled);
+    setIsEditOpen(true);
+  };
+
+  const closeEditDialog = () => {
+    setIsEditOpen(false);
+    setEditingRowId(null);
+    setEditingTableIndex(1);
+    setEditingCanCancel(false);
+  };
+
+  const handleSaveEdit = () => {
+    if (editingRowId === null) return;
+
+    const nextExpense = Number(editExpense);
+    const nextCompensation = Number(editCompensation);
+    if (!Number.isFinite(nextExpense) || nextExpense < 0) return;
+    if (!Number.isFinite(nextCompensation) || nextCompensation < 0) return;
+
+    updateRowField(editingRowId, {
+      detail: editDetail,
+    }, {
+      tableIndex: editingTableIndex,
+      expense: nextExpense,
+      compensation: nextCompensation,
+      source: editSource,
+      status: editStatus,
+    });
+    closeEditDialog();
+  };
+
+  const handleCancelPlanRow = () => {
+    if (editingRowId === null) return;
+    updateRowField(editingRowId, { isCancelled: true });
+    closeEditDialog();
+  };
+
+  const openMonthIncomeDialog = (tableIndex: number) => {
+    const currentValue = resolveMonthlyIncomeByMonth(monthlyIncome, monthlyIncomeByMonth, tableIndex);
+    setEditingMonthIncomeTableIndex(tableIndex);
+    setEditingMonthIncomeValue(String(currentValue));
+    setIsMonthIncomeOpen(true);
+  };
+
+  const closeMonthIncomeDialog = () => {
+    setIsMonthIncomeOpen(false);
+    setEditingMonthIncomeTableIndex(1);
+    setEditingMonthIncomeValue("0");
+  };
+
+  const saveMonthIncomeDialog = () => {
+    const parsed = parseNumberInput(editingMonthIncomeValue);
+    if (parsed === null || parsed < 0) return;
+    void (async () => {
+      const tableIndex = editingMonthIncomeTableIndex;
+      const value = parsed;
+      const monthKey = String(tableIndex);
+      const nextSnapshot = await updateBudgetSnapshot((current) => ({
+        ...current,
+        monthlyIncomeByMonth: {
+          ...(current.monthlyIncomeByMonth ?? {}),
+          [monthKey]: value,
+        },
+        totalTables: Math.max(current.totalTables, tableIndex, 1),
+        updatedAt: nowTimestamp(),
+      }));
+
+      setRows(nextSnapshot.rows);
+      setTotalTables(nextSnapshot.totalTables);
+      setOpeningBalance(nextSnapshot.accountBalance);
+      setAccountBalanceByMonth(nextSnapshot.accountBalanceByMonth ?? {});
+      setMonthlyIncome(nextSnapshot.monthlyIncome);
+      setMonthlyIncomeByMonth(nextSnapshot.monthlyIncomeByMonth ?? {});
+      void writeBudgetToServer(nextSnapshot);
+      closeMonthIncomeDialog();
+    })();
+  };
+
+  const resetMonthIncomeToDefault = () => {
+    void (async () => {
+      const monthKey = String(editingMonthIncomeTableIndex);
+      const nextSnapshot = await updateBudgetSnapshot((current) => {
+        const nextMap = { ...(current.monthlyIncomeByMonth ?? {}) };
+        delete nextMap[monthKey];
+        return {
+          ...current,
+          monthlyIncomeByMonth: nextMap,
+          updatedAt: nowTimestamp(),
+        };
+      });
+
+      setRows(nextSnapshot.rows);
+      setTotalTables(nextSnapshot.totalTables);
+      setOpeningBalance(nextSnapshot.accountBalance);
+      setAccountBalanceByMonth(nextSnapshot.accountBalanceByMonth ?? {});
+      setMonthlyIncome(nextSnapshot.monthlyIncome);
+      setMonthlyIncomeByMonth(nextSnapshot.monthlyIncomeByMonth ?? {});
+      void writeBudgetToServer(nextSnapshot);
+      closeMonthIncomeDialog();
+    })();
+  };
+
+  const expenseByMonth = useMemo(() => {
+    return map(tableIndexes, (tableIndex) => {
+      const displayRows = buildDisplayRows(rows, tableIndex);
+      return displayRows.reduce((sum, row) => sum + row.expense, 0);
+    });
+  }, [tableIndexes, rows]);
+
+  const monthEndingByMonth = useMemo(() => {
+    const endings: number[] = [];
+    for (let i = 0; i < tableIndexes.length; i += 1) {
+      const tableIndex = i + 1;
+      const monthIncome = resolveMonthlyIncomeByMonth(monthlyIncome, monthlyIncomeByMonth, tableIndex);
+      const fallbackStartBalance = i === 0 ? openingBalance : (endings[i - 1] ?? openingBalance) + monthIncome;
+      const overriddenStartBalance = resolveAccountBalanceByMonth(
+        openingBalance,
+        accountBalanceByMonth,
+        tableIndex,
+      );
+      const startBalance = overriddenStartBalance ?? fallbackStartBalance;
+      const displayRows = buildDisplayRows(rows, tableIndex);
+      const endBalance = displayRows.reduce(
+        (running, row) => running + row.compensation - row.expense,
+        startBalance,
+      );
+      endings.push(endBalance);
+    }
+    return endings;
+  }, [tableIndexes.length, rows, openingBalance, accountBalanceByMonth, monthlyIncome, monthlyIncomeByMonth]);
+
+  const roundStartingByMonth = useMemo(() => {
+    const starts: number[] = [];
+    for (let i = 0; i < tableIndexes.length; i += 1) {
+      if (i === 0) {
+        starts.push(openingBalance);
+      } else {
+        const prevEnding = monthEndingByMonth[i - 1] ?? openingBalance;
+        const tableIndex = i + 1;
+        const monthIncome = resolveMonthlyIncomeByMonth(monthlyIncome, monthlyIncomeByMonth, tableIndex);
+        const fallbackStartBalance = prevEnding + monthIncome;
+        const overriddenStartBalance = resolveAccountBalanceByMonth(
+          openingBalance,
+          accountBalanceByMonth,
+          tableIndex,
+        );
+        starts.push(overriddenStartBalance ?? fallbackStartBalance);
+      }
+    }
+    return starts;
+  }, [tableIndexes.length, openingBalance, accountBalanceByMonth, monthlyIncome, monthlyIncomeByMonth, monthEndingByMonth]);
+
+  return (
+    <MarketingLayout>
+      <Container maxWidth="lg" className={styles.wrapper}>
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          justifyContent="space-between"
+          alignItems={{ xs: "stretch", md: "center" }}
+          gap={2}
+          mb={2}
+        >
+          <Box>
+            <Typography variant="h3" className={styles.title}>
+              รายการจ่าย
+            </Typography>
+          </Box>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.2}>
+            <Box className={styles.summaryField}>
+              <Typography className={styles.summaryLabel}>จำนวนเดือนทั้งหมด</Typography>
+              <Typography className={styles.summaryValue}>{totalTables}</Typography>
+            </Box>
+            <Box className={styles.summaryField}>
+              <Typography className={styles.summaryLabel}>ยอดคงเหลือ (THB)</Typography>
+              <Typography className={styles.summaryValue}>{formatNumber(openingBalance)}</Typography>
+            </Box>
+            <Button
+              variant="contained"
+              onClick={openAddDialog}
+              startIcon={<AddRoundedIcon />}
+              sx={{
+                borderRadius: "18px",
+                px: 1.2,
+                py: 0.45,
+                alignSelf:'center',
+                maxHeight: 48,
+                fontSize: "0.86rem",
+                fontWeight: 600,
+                background: "linear-gradient(135deg, #0071e3, #2b8cff)",
+                boxShadow: "0 4px 12px rgba(0,113,227,0.22)",
+                "&:hover": {
+                  background: "linear-gradient(135deg, #0067d1, #1e7ff0)",
+                  boxShadow: "0 6px 14px rgba(0,113,227,0.28)",
+                },
+              }}
+            >
+              เพิ่มรายการ
+            </Button>
+          </Stack>
+        </Stack>
+
+        <Box className={styles.archiveToolbar}>
+          <Button
+            size="small"
+            variant="outlined"
+            className={styles.archiveButton}
+            onClick={() => setShowArchive(true)}
+          >
+            {`Archive (${archivedTableIndexes.length})`}
+          </Button>
+        </Box>
+
+        <Box className={styles.tableList}>
+          {map(activeTableIndexes, (tableIndex) => {
+            const displayRows = buildDisplayRows(rows, tableIndex);
+            const monthArrayIndex = tableIndex - 1;
+            const totalExpenseThisMonth = expenseByMonth[monthArrayIndex] ?? 0;
+            const roundStartingBalance = roundStartingByMonth[monthArrayIndex] ?? openingBalance;
+            const isCustomMonthIncome = isCustomMonthlyIncomeByMonth(monthlyIncomeByMonth, tableIndex);
+            let runningRowBalance = roundStartingBalance;
+            const displayRowsWithBalance = map(displayRows, (row) => {
+              runningRowBalance = runningRowBalance + row.compensation - row.expense;
+              return { ...row, balanceAfter: runningRowBalance };
+            });
+            const remainingThisMonth =
+              monthEndingByMonth[monthArrayIndex] ?? roundStartingBalance;
+            return (
+              <section key={tableIndex} className={styles.tableCard}>
+                <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" className={styles.tableHeadingRow}>
+                  <Box className={styles.tableTitleBlock}>
+                    <Typography variant="h6" className={styles.tableHeading}>
+                      รอบจ่าย {getRoundLabel(tableIndex)}
+                    </Typography>
+                    <Typography className={styles.roundBaseLabel}>
+                      ยอดตั้งต้นรอบนี้: {formatNumber(roundStartingBalance)} THB
+                    </Typography>
+                  </Box>
+                  <Box className={styles.monthSummaryGroup}>
+                    <Box
+                      className={`${styles.monthRemaining} ${styles.monthRemainingClickable} ${
+                        isCustomMonthIncome ? styles.monthRemainingCustom : ""
+                      }`}
+                      onClick={() => openMonthIncomeDialog(tableIndex)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          openMonthIncomeDialog(tableIndex);
+                        }
+                      }}
+                    >
+                      <Typography className={styles.monthRemainingLabel}>คงเหลือต่อเดือน</Typography>
+                      <Typography className={styles.monthRemainingValue}>
+                        {formatNumber(remainingThisMonth)} THB
+                      </Typography>
+                    </Box>
+                    <Box className={styles.monthExpenseSummary}>
+                      <Typography className={styles.monthExpenseLabel}>สรุปค่าใช้จ่าย</Typography>
+                      <Typography className={styles.monthExpenseValue}>
+                        {formatNumber(totalExpenseThisMonth)} THB
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Stack>
+                <div className={styles.tableScroll}>
+                  <table className={styles.dataTable}>
+                    <thead>
+                      <tr>
+                        <th>รายการที่</th>
+                        <th>รายละเอียด</th>
+                        <th>ค่าใช้จ่าย</th>
+                        <th>จำนวนเดือนที่เหลือ</th>
+                        <th>เงินทดแทน</th>
+                        <th>ที่มา</th>
+                        <th>เหลือจ่าย</th>
+                        <th>STATUS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {map(displayRowsWithBalance, (row) => (
+                        <tr
+                          key={`${tableIndex}-${row.id}`}
+                          className={styles.clickableRow}
+                          onClick={() => openEditDialog(row.id, tableIndex)}
+                        >
+                          <td>{row.itemNo}</td>
+                          <td>{row.detail}</td>
+                          <td>{formatNumber(row.expense)}</td>
+                          <td>{row.monthsLeft}</td>
+                          <td>{formatNumber(row.compensation)}</td>
+                          <td>{row.source || "-"}</td>
+                          <td>{formatNumber(row.balanceAfter)}</td>
+                          <td>
+                            <Chip
+                              label={row.status}
+                              size="small"
+                              color={row.status === "PAID" ? "success" : "warning"}
+                              variant="filled"
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                      {displayRows.length === 0 && (
+                        <tr>
+                          <td colSpan={8} className={styles.emptyCell}>
+                            No rows in this table
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            );
+          })}
+        </Box>
+
+        <Dialog
+          open={showArchive}
+          onClose={() => setShowArchive(false)}
+          fullWidth
+          maxWidth="lg"
+          slotProps={{
+            paper: {
+              sx: {
+                borderRadius: 2,
+                background: "linear-gradient(180deg, #ffffff, #f8fbff)",
+                border: "1px solid rgba(0,0,0,0.08)",
+              },
+            },
+          }}
+        >
+          <DialogTitle sx={{ pb: 0.6 }}>
+            <Typography component="div" variant="h6" sx={{ fontWeight: 700 }}>
+              Archive (อ่านอย่างเดียว)
+            </Typography>
+          </DialogTitle>
+          <DialogContent sx={{ pt: "8px !important", maxHeight: "72vh" }}>
+            <Stack spacing={1.2}>
+              {archivedTableIndexes.length === 0 && (
+                <Typography color="text.secondary">ยังไม่มีเดือนที่ผ่านมา</Typography>
+              )}
+              {map(archivedTableIndexes, (tableIndex) => {
+                const displayRows = buildDisplayRows(rows, tableIndex);
+                const monthArrayIndex = tableIndex - 1;
+                const totalExpenseThisMonth = expenseByMonth[monthArrayIndex] ?? 0;
+                const roundStartingBalance = roundStartingByMonth[monthArrayIndex] ?? openingBalance;
+                const remainingThisMonth = monthEndingByMonth[monthArrayIndex] ?? roundStartingBalance;
+                const isCustomMonthIncome = isCustomMonthlyIncomeByMonth(monthlyIncomeByMonth, tableIndex);
+                let runningRowBalance = roundStartingBalance;
+                const displayRowsWithBalance = map(displayRows, (row) => {
+                  runningRowBalance = runningRowBalance + row.compensation - row.expense;
+                  return { ...row, balanceAfter: runningRowBalance };
+                });
+
+                return (
+                  <section key={`archive-${tableIndex}`} className={styles.tableCard}>
+                    <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" className={styles.tableHeadingRow}>
+                      <Box className={styles.tableTitleBlock}>
+                        <Typography variant="h6" className={styles.tableHeading}>
+                          รอบจ่าย {getRoundLabel(tableIndex)}
+                        </Typography>
+                        <Typography className={styles.roundBaseLabel}>
+                          ยอดตั้งต้นรอบนี้: {formatNumber(roundStartingBalance)} THB
+                        </Typography>
+                      </Box>
+                      <Box className={styles.monthSummaryGroup}>
+                        <Box className={`${styles.monthRemaining} ${isCustomMonthIncome ? styles.monthRemainingCustom : ""}`}>
+                          <Typography className={styles.monthRemainingLabel}>คงเหลือต่อเดือน</Typography>
+                          <Typography className={styles.monthRemainingValue}>
+                            {formatNumber(remainingThisMonth)} THB
+                          </Typography>
+                        </Box>
+                        <Box className={styles.monthExpenseSummary}>
+                          <Typography className={styles.monthExpenseLabel}>สรุปค่าใช้จ่าย</Typography>
+                          <Typography className={styles.monthExpenseValue}>
+                            {formatNumber(totalExpenseThisMonth)} THB
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Stack>
+                    <div className={styles.tableScroll}>
+                      <table className={styles.dataTable}>
+                        <thead>
+                          <tr>
+                            <th>รายการที่</th>
+                            <th>รายละเอียด</th>
+                            <th>ค่าใช้จ่าย</th>
+                            <th>จำนวนเดือนที่เหลือ</th>
+                            <th>เงินทดแทน</th>
+                            <th>ที่มา</th>
+                            <th>เหลือจ่าย</th>
+                            <th>STATUS</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {map(displayRowsWithBalance, (row) => (
+                            <tr key={`arch-row-${tableIndex}-${row.id}`} className={styles.readonlyRow}>
+                              <td>{row.itemNo}</td>
+                              <td>{row.detail}</td>
+                              <td>{formatNumber(row.expense)}</td>
+                              <td>{row.monthsLeft}</td>
+                              <td>{formatNumber(row.compensation)}</td>
+                              <td>{row.source || "-"}</td>
+                              <td>{formatNumber(row.balanceAfter)}</td>
+                              <td>
+                                <Chip
+                                  label={row.status}
+                                  size="small"
+                                  color={row.status === "PAID" ? "success" : "warning"}
+                                  variant="filled"
+                                />
+                              </td>
+                            </tr>
+                          ))}
+                          {displayRows.length === 0 && (
+                            <tr>
+                              <td colSpan={8} className={styles.emptyCell}>
+                                No rows in this table
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+                );
+              })}
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setShowArchive(false)}>ปิด</Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog
+          open={isAddOpen}
+          onClose={closeAddDialog}
+          fullWidth
+          maxWidth="sm"
+          slotProps={{
+            paper: {
+              sx: {
+                borderRadius: 1,
+                background: "linear-gradient(180deg, #ffffff, #f9fbff)",
+                border: "1px solid rgba(0,0,0,0.08)",
+                boxShadow: "0 24px 70px rgba(17, 31, 54, 0.26)",
+              },
+            },
+          }}
+        >
+          <form onSubmit={handleAddRow}>
+            <DialogTitle sx={{ pb: 1 }}>
+              <Stack spacing={0.2}>
+                <Typography component="div" variant="h5" sx={{ fontWeight: 700, letterSpacing: "-0.02em" }}>
+                  เพิ่มรายการ
+                </Typography>
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                  กรอกรายละเอียดรายการที่ต้องการเพิ่มในรอบจ่าย
+                </Typography>
+              </Stack>
+            </DialogTitle>
+            <DialogContent sx={{ pt: "8px !important" }}>
+              <Stack spacing={1.2} mt={0.5}>
+                <TextField
+                  size="small"
+                  fullWidth
+                  label="รายละเอียด"
+                  value={detail}
+                  onChange={(event) => setDetail(event.target.value)}
+                  sx={formFieldSx}
+                />
+                <TextField
+                  size="small"
+                  fullWidth
+                  label="ค่าใช้จ่าย (THB)"
+                  type="number"
+                  value={expense}
+                  onChange={(event) => setExpense(event.target.value)}
+                  slotProps={{ htmlInput: { min: 0, step: "0.01" } }}
+                  sx={formFieldSx}
+                />
+                <TextField
+                  size="small"
+                  fullWidth
+                  label="จำนวนเดือน"
+                  type="number"
+                  value={spreadMonths}
+                  onChange={(event) => setSpreadMonths(event.target.value)}
+                  helperText={`ถ้าเดือนมากกว่า ${totalTables} ระบบจะเพิ่มจำนวนเดือนทั้งหมดให้อัตโนมัติ`}
+                  slotProps={{ htmlInput: { min: 1 } }}
+                  sx={formFieldSx}
+                />
+                <TextField
+                  size="small"
+                  fullWidth
+                  label="เงินทดแทน (THB)"
+                  type="number"
+                  value={compensation}
+                  onChange={(event) => setCompensation(event.target.value)}
+                  slotProps={{ htmlInput: { min: 0, step: "0.01" } }}
+                  sx={formFieldSx}
+                />
+                <TextField
+                  size="small"
+                  fullWidth
+                  label="ที่มา"
+                  value={source}
+                  onChange={(event) => setSource(event.target.value)}
+                  sx={formFieldSx}
+                />
+                <TextField
+                  size="small"
+                  fullWidth
+                  select
+                  label="สถานะ"
+                  value={status}
+                  onChange={(event) => setStatus(event.target.value as RowStatus)}
+                  sx={formFieldSx}
+                >
+                  {map(STATUS_OPTIONS, (option) => (
+                    <MenuItem key={option} value={option}>
+                      {option}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Stack>
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 2.4, pt: 1.5, gap: 1 }}>
+              <Button onClick={closeAddDialog} sx={{ borderRadius: 999, px: 1.8 }}>
+                ยกเลิก
+              </Button>
+              <Button type="submit" variant="contained" sx={{ borderRadius: 999, px: 2 }}>
+                บันทึกรายการ
+              </Button>
+            </DialogActions>
+          </form>
+        </Dialog>
+
+        <Dialog
+          open={isEditOpen}
+          onClose={closeEditDialog}
+          fullWidth
+          maxWidth="sm"
+          slotProps={{
+            paper: {
+              sx: {
+                borderRadius: 1,
+                background: "linear-gradient(180deg, #ffffff, #f9fbff)",
+                border: "1px solid rgba(0,0,0,0.08)",
+                boxShadow: "0 24px 70px rgba(17, 31, 54, 0.26)",
+              },
+            },
+          }}
+        >
+          <DialogTitle sx={{ pb: 1 }}>
+            <Stack spacing={0.2}>
+              <Typography component="div" variant="h5" sx={{ fontWeight: 700, letterSpacing: "-0.02em" }}>
+                แก้ไขรายการ
+              </Typography>
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                เดือน {getRoundLabel(editingTableIndex)} (เงินทดแทน/ที่มา แยกตามเดือน)
+                </Typography>
+              </Stack>
+          </DialogTitle>
+          <DialogContent sx={{ pt: "8px !important" }}>
+            <Stack spacing={1.2} mt={0.5}>
+              <TextField
+                size="small"
+                fullWidth
+                label="รายละเอียด"
+                value={editDetail}
+                onChange={(event) => setEditDetail(event.target.value)}
+                sx={formFieldSx}
+              />
+              <TextField
+                size="small"
+                fullWidth
+                label="ค่าใช้จ่าย (THB)"
+                type="number"
+                value={editExpense}
+                onChange={(event) => setEditExpense(event.target.value)}
+                slotProps={{ htmlInput: { min: 0, step: "0.01" } }}
+                sx={formFieldSx}
+              />
+              <TextField
+                size="small"
+                fullWidth
+                label="เงินทดแทน (THB)"
+                type="number"
+                value={editCompensation}
+                onChange={(event) => setEditCompensation(event.target.value)}
+                slotProps={{ htmlInput: { min: 0, step: "0.01" } }}
+                sx={formFieldSx}
+              />
+              <TextField
+                size="small"
+                fullWidth
+                label="ที่มา"
+                value={editSource}
+                onChange={(event) => setEditSource(event.target.value)}
+                sx={formFieldSx}
+              />
+              <TextField
+                size="small"
+                fullWidth
+                select
+                label="สถานะ"
+                value={editStatus}
+                onChange={(event) => setEditStatus(event.target.value as RowStatus)}
+                sx={formFieldSx}
+              >
+                {map(STATUS_OPTIONS, (option) => (
+                  <MenuItem key={option} value={option}>
+                    {option}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2.4, pt: 1.5, gap: 1 }}>
+            {editingCanCancel && (
+              <Button color="error" onClick={handleCancelPlanRow} sx={{ borderRadius: 999, px: 1.8 }}>
+                ยกเลิกรายการจากแผน
+              </Button>
+            )}
+            <Button onClick={closeEditDialog} sx={{ borderRadius: 999, px: 1.8 }}>
+              ยกเลิก
+            </Button>
+            <Button onClick={handleSaveEdit} variant="contained" sx={{ borderRadius: 999, px: 2 }}>
+              บันทึกรายการ
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog
+          open={isMonthIncomeOpen}
+          onClose={closeMonthIncomeDialog}
+          fullWidth
+          maxWidth="xs"
+          slotProps={{
+            paper: {
+              sx: {
+                borderRadius: 2,
+                background: "linear-gradient(180deg, #ffffff, #f8fbff)",
+                border: "1px solid rgba(0,0,0,0.08)",
+                boxShadow: "0 20px 50px rgba(17, 31, 54, 0.24)",
+              },
+            },
+          }}
+        >
+          <DialogTitle sx={{ pb: 0.5 }}>
+            <Typography component="div" variant="h6" sx={{ fontWeight: 700 }}>
+              ตั้งค่า Monthly Income
+            </Typography>
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              รอบ {getRoundLabel(editingMonthIncomeTableIndex)}
+            </Typography>
+          </DialogTitle>
+          <DialogContent sx={{ pt: "8px !important" }}>
+            <TextField
+              fullWidth
+              size="small"
+              label="Monthly Income (THB)"
+              value={editingMonthIncomeValue}
+              onChange={(event) => setEditingMonthIncomeValue(event.target.value)}
+              slotProps={{
+                input: {
+                  startAdornment: <InputAdornment position="start">THB</InputAdornment>,
+                },
+                htmlInput: { min: 0, step: "0.01" },
+              }}
+              type="number"
+            />
+            <Typography variant="caption" sx={{ display: "block", mt: 1, color: "text.secondary" }}>
+              ค่า default มาจาก Monthly Income หลัก และจะบันทึกเมื่อกดปุ่มอัปเดต
+            </Typography>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2.2, pt: 1, gap: 0.8 }}>
+            <Button onClick={resetMonthIncomeToDefault}>ใช้ค่า default</Button>
+            <Button onClick={closeMonthIncomeDialog}>ยกเลิก</Button>
+            <Button variant="contained" onClick={saveMonthIncomeDialog}>
+              อัปเดต
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Container>
+    </MarketingLayout>
+  );
+}

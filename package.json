@@ -14,11 +14,14 @@
     "@fontsource/inter": "^5.2.8",
     "@mui/icons-material": "^7.3.8",
     "@mui/material": "^7.3.8",
+    "dayjs": "^1.11.19",
+    "lodash": "^4.17.23",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },
   "devDependencies": {
+    "@types/lodash": "^4.17.24",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

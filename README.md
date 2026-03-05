@@ -19,9 +19,9 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 src/
   app/
     layout.tsx          # Root layout + theme provider mount
-    page.tsx            # Overview page
-    features/           # Features page + local CSS module
-    pricing/            # Pricing page + local CSS module
+    page.tsx            # Home page
+    table/              # Table page + local CSS module
+    plan/               # Plan page + local CSS module
     globals.css         # Global styles/reset
   components/
     layout/             # Header/Footer

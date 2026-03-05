@@ -1,0 +1,376 @@
+{
+  "accountBalance": 90000,
+  "monthlyIncome": 20000,
+  "monthlyIncomeByMonth": {
+    "2": 30000,
+    "3": 30000
+  },
+  "totalTables": 35,
+  "rows": [
+    {
+      "id": 1,
+      "detail": "switch 2",
+      "expense": 2009,
+      "spreadMonths": 2,
+      "compensation": 0,
+      "source": "",
+      "status": "PAID",
+      "expenseByMonth": {
+        "2": 2009
+      },
+      "compensationByMonth": {
+        "2": 0
+      },
+      "sourceByMonth": {
+        "2": ""
+      },
+      "statusByMonth": {
+        "2": "PENDING"
+      }
+    },
+    {
+      "id": 2,
+      "detail": "กล้อง",
+      "expense": 6770.8,
+      "spreadMonths": 1,
+      "compensation": 3700,
+      "source": "",
+      "status": "PENDING"
+    },
+    {
+      "id": 3,
+      "detail": "24-70 GM2",
+      "expense": 5960,
+      "spreadMonths": 1,
+      "compensation": 0,
+      "source": "",
+      "status": "PENDING"
+    },
+    {
+      "id": 4,
+      "detail": "7 Flip",
+      "expense": 3442.5,
+      "spreadMonths": 3,
+      "compensation": 0,
+      "source": "",
+      "status": "PENDING"
+    },
+    {
+      "id": 5,
+      "detail": "16 PM",
+      "expense": 1700,
+      "spreadMonths": 12,
+      "compensation": 1400,
+      "source": "เอิธ",
+      "status": "PAID",
+      "compensationByMonth": {
+        "2": 1400,
+        "3": 1400,
+        "4": 1400,
+        "5": 1400,
+        "6": 1400,
+        "7": 1400,
+        "8": 1400,
+        "9": 1400,
+        "10": 1400,
+        "11": 1400,
+        "12": 9800
+      },
+      "sourceByMonth": {
+        "2": "เอิธ",
+        "3": "เอิธ",
+        "4": "เอิธ",
+        "5": "เอิธ",
+        "6": "เอิธ",
+        "7": "เอิธ",
+        "8": "เอิธ",
+        "9": "เอิธ",
+        "10": "เอิธ",
+        "11": "เอิธ",
+        "12": "เอิธ"
+      },
+      "expenseByMonth": {
+        "2": 1700,
+        "3": 1700,
+        "4": 1700,
+        "5": 1700,
+        "6": 1700,
+        "7": 1700,
+        "8": 1700,
+        "9": 1700,
+        "10": 1700,
+        "11": 1700,
+        "12": 10200
+      },
+      "statusByMonth": {
+        "2": "PENDING",
+        "3": "PENDING",
+        "4": "PENDING",
+        "5": "PENDING",
+        "6": "PENDING",
+        "7": "PENDING",
+        "8": "PENDING",
+        "9": "PENDING",
+        "10": "PENDING",
+        "11": "PENDING",
+        "12": "PENDING"
+      }
+    },
+    {
+      "id": 6,
+      "detail": "A7V",
+      "expense": 14270.33,
+      "spreadMonths": 5,
+      "compensation": 0,
+      "source": "",
+      "status": "PENDING",
+      "expenseByMonth": {
+        "3": 14270.33
+      },
+      "compensationByMonth": {
+        "3": 2000
+      },
+      "sourceByMonth": {
+        "3": "Cashback"
+      }
+    },
+    {
+      "id": 7,
+      "detail": "ประกัน",
+      "expense": 2025,
+      "spreadMonths": 3,
+      "compensation": 0,
+      "source": "",
+      "status": "PAID",
+      "expenseByMonth": {
+        "2": 2025,
+        "3": 2025
+      },
+      "compensationByMonth": {
+        "2": 0,
+        "3": 0
+      },
+      "sourceByMonth": {
+        "2": "",
+        "3": ""
+      },
+      "statusByMonth": {
+        "2": "PENDING",
+        "3": "PENDING"
+      }
+    },
+    {
+      "id": 8,
+      "detail": "เลนส์ 85 1.8",
+      "expense": 4030,
+      "spreadMonths": 2,
+      "compensation": 0,
+      "source": "",
+      "status": "PENDING",
+      "compensationByMonth": {
+        "1": 0
+      },
+      "sourceByMonth": {
+        "1": ""
+      }
+    },
+    {
+      "id": 9,
+      "detail": "คืนค่าบ้าน",
+      "expense": 1000,
+      "spreadMonths": 8,
+      "compensation": 0,
+      "source": "",
+      "status": "PAID",
+      "expenseByMonth": {
+        "2": 1000,
+        "8": 3000
+      },
+      "compensationByMonth": {
+        "2": 0,
+        "8": 0
+      },
+      "sourceByMonth": {
+        "2": "",
+        "8": ""
+      }
+    },
+    {
+      "id": 10,
+      "detail": "Fuji+lens",
+      "expense": 10000,
+      "spreadMonths": 6,
+      "compensation": 0,
+      "source": "",
+      "status": "PENDING"
+    },
+    {
+      "id": 11,
+      "detail": "70-200 GM2",
+      "expense": 4000,
+      "spreadMonths": 12,
+      "compensation": 0,
+      "source": "",
+      "status": "PENDING"
+    },
+    {
+      "id": 3545240985717,
+      "detail": "FUJINON 16-55 F2.8 M2 (10 เดือน)",
+      "expense": 4599,
+      "expenseByMonth": {
+        "11": 4599,
+        "12": 4599,
+        "13": 4599,
+        "14": 4599,
+        "15": 4599,
+        "16": 4599,
+        "17": 4599,
+        "18": 4599,
+        "19": 4599,
+        "20": 4599
+      },
+      "startMonth": 11,
+      "spreadMonths": 10,
+      "compensation": 0,
+      "source": "PLAN",
+      "status": "PENDING",
+      "planMeta": {
+        "planId": "plan-1772620489299",
+        "termMonths": 10,
+        "startMonth": 11
+      },
+      "isCancelled": false
+    },
+    {
+      "id": 3545242451531,
+      "detail": "SONY 50-150 F2 (18 เดือน)",
+      "expense": 5660.61,
+      "expenseByMonth": {
+        "15": 5660.61,
+        "16": 5660.61,
+        "17": 5660.61,
+        "18": 5660.61,
+        "19": 5660.61,
+        "20": 5660.61,
+        "21": 5660.61,
+        "22": 5660.61,
+        "23": 5660.61,
+        "24": 5660.61,
+        "25": 5660.61,
+        "26": 5660.61,
+        "27": 5660.61,
+        "28": 5660.61,
+        "29": 5660.61,
+        "30": 5660.61,
+        "31": 5660.61,
+        "32": 5660.61
+      },
+      "startMonth": 15,
+      "spreadMonths": 18,
+      "compensation": 0,
+      "source": "PLAN",
+      "status": "PENDING",
+      "planMeta": {
+        "planId": "plan-1772621222231",
+        "termMonths": 18,
+        "startMonth": 15
+      }
+    },
+    {
+      "id": 3545243592882,
+      "detail": "SONY 16-35 F2.8 (10 เดือน)",
+      "expense": 6074.1,
+      "expenseByMonth": {
+        "26": 6074.1,
+        "27": 6074.1,
+        "28": 6074.1,
+        "29": 6074.1,
+        "30": 6074.1,
+        "31": 6074.1,
+        "32": 6074.1,
+        "33": 6074.1,
+        "34": 6074.1,
+        "35": 6074.1
+      },
+      "startMonth": 26,
+      "spreadMonths": 10,
+      "compensation": 0,
+      "source": "PLAN",
+      "status": "PENDING",
+      "planMeta": {
+        "planId": "plan-1772621791194",
+        "termMonths": 10,
+        "startMonth": 26
+      }
+    },
+    {
+      "id": 3545244777656,
+      "detail": "iPhone 18 Pro Max (18 เดือน)",
+      "expense": 2516.67,
+      "expenseByMonth": {
+        "11": 2516.67,
+        "12": 2516.67,
+        "13": 2516.67,
+        "14": 2516.67,
+        "15": 2516.67,
+        "16": 2516.67,
+        "17": 2516.67,
+        "18": 2516.67,
+        "19": 2516.67,
+        "20": 2516.67,
+        "21": 2516.67,
+        "22": 2516.67,
+        "23": 2516.67,
+        "24": 2516.67,
+        "25": 2516.67,
+        "26": 2516.67,
+        "27": 2516.67,
+        "28": 2516.67
+      },
+      "startMonth": 11,
+      "spreadMonths": 18,
+      "compensation": 0,
+      "source": "PLAN",
+      "status": "PENDING",
+      "planMeta": {
+        "planId": "plan-1772622380176",
+        "termMonths": 18,
+        "startMonth": 11
+      },
+      "compensationByMonth": {
+        "12": 28000
+      },
+      "sourceByMonth": {
+        "12": "PLAN"
+      }
+    },
+    {
+      "id": 3545251749598,
+      "detail": "FUJIFILM XE5 (10 เดือน)",
+      "expense": 4860,
+      "expenseByMonth": {
+        "11": 4860,
+        "12": 4860,
+        "13": 4860,
+        "14": 4860,
+        "15": 4860,
+        "16": 4860,
+        "17": 4860,
+        "18": 4860,
+        "19": 4860,
+        "20": 4860
+      },
+      "startMonth": 11,
+      "spreadMonths": 10,
+      "compensation": 0,
+      "source": "PLAN",
+      "status": "PENDING",
+      "planMeta": {
+        "planId": "plan-1772625871699",
+        "termMonths": 10,
+        "startMonth": 11
+      }
+    }
+  ],
+  "updatedAt": 1772632847956
+}

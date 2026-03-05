@@ -1,0 +1,198 @@
+.wrapper {
+  padding-top: 4.5rem;
+  padding-bottom: 2rem;
+}
+
+.title {
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+}
+
+.subtitle {
+  color: #6e6e73;
+  max-width: 760px;
+  margin-top: 0.5rem;
+}
+
+.summaryField {
+  min-width: 210px;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: linear-gradient(145deg, #ffffff, #f6f8ff);
+  padding: 0.55rem 0.8rem;
+}
+
+.summaryLabel {
+  font-size: 0.78rem;
+  color: #6e6e73;
+}
+
+.summaryValue {
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.tableList {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.archiveToolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.55rem;
+}
+
+.archiveButton {
+  min-height: 28px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  padding-inline: 0.65rem;
+}
+
+.archiveSection {
+  margin-top: 1rem;
+}
+
+.archiveTitle {
+  font-size: 0.92rem;
+  color: #616d80;
+  margin-bottom: 0.6rem;
+  font-weight: 600;
+}
+
+.tableCard {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 18px;
+  padding: 0.9rem;
+}
+
+.tableHeading {
+  padding: 0.2rem 0.25rem 0;
+  line-height: 1.2;
+}
+
+.tableTitleBlock {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.25rem;
+}
+
+.roundBaseLabel {
+  padding-left: 0.25rem;
+  font-size: 0.78rem;
+  color: #5d6472;
+  line-height: 1.25;
+}
+
+.tableHeadingRow {
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0 0.25rem 0.35rem;
+}
+
+.monthSummaryGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.monthRemaining {
+  border-radius: 12px;
+  padding: 0.45rem 0.75rem;
+  background: linear-gradient(145deg, #eef6ff, #f6fbff);
+  border: 1px solid rgba(0, 113, 227, 0.2);
+}
+
+.monthRemainingClickable {
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+
+.monthRemainingClickable:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 113, 227, 0.15);
+}
+
+.monthRemainingCustom {
+  background: linear-gradient(145deg, #e8fff0, #f2fff6);
+  border: 1px solid rgba(8, 145, 88, 0.35);
+}
+
+.monthRemainingLabel {
+  font-size: 0.74rem;
+  color: #38679a;
+}
+
+.monthRemainingValue {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #0f3e72;
+}
+
+.monthExpenseSummary {
+  border-radius: 12px;
+  padding: 0.45rem 0.75rem;
+  background: linear-gradient(145deg, #fff7ea, #fffaf2);
+  border: 1px solid rgba(228, 147, 16, 0.25);
+}
+
+.monthExpenseLabel {
+  font-size: 0.74rem;
+  color: #996210;
+}
+
+.monthExpenseValue {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #794804;
+}
+
+.tableScroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.dataTable {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 840px;
+  background: #fff;
+}
+
+.dataTable th,
+.dataTable td {
+  border: 1px solid #d9d9df;
+  padding: 0.6rem 0.55rem;
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.dataTable th {
+  background: #f5f6f8;
+  font-weight: 700;
+}
+
+.clickableRow {
+  cursor: pointer;
+}
+
+.clickableRow:hover td {
+  background: #f7faff;
+}
+
+.readonlyRow td {
+  background: #fcfcfe;
+}
+
+.emptyCell {
+  color: #7b7b81;
+  text-align: center;
+  padding: 0.95rem;
+}

@@ -4,9 +4,9 @@ export type SitePage = {
 };
 
 export const SITE_PAGES: SitePage[] = [
-  { title: "Overview", path: "/" },
-  { title: "Features", path: "/features" },
-  { title: "Pricing", path: "/pricing" },
+  { title: "Home", path: "/" },
+  { title: "Table", path: "/table" },
+  { title: "Plan", path: "/plan" },
 ];
 
 export function pageToIndex(pathname: string): number {
