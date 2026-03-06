@@ -54,22 +54,20 @@ Data safety:
 - Use `Backup Data` in the account menu to export JSON.
 - Use `Restore Data` in the same menu on another device to import your data back.
 
-## Google Sheets sync (read/write)
+## Firebase sync (server-side, no login required)
 
-Set environment variables:
-- `GOOGLE_SERVICE_ACCOUNT_EMAIL`
-- `GOOGLE_PRIVATE_KEY` (keep line breaks as `\\n` in env)
-- `GOOGLE_SHEET_ID`
+The app now writes/reads Firestore via Next.js API (`/api/budget`) using `firebase-admin`.
+Client does not access Firestore directly.
 
-Alternative (recommended): use key file instead
-- `GOOGLE_SERVICE_ACCOUNT_KEY_FILE` (e.g. `web-accounting-489404-87a49b322bc2.json`)
+Set server environment:
+- `FIREBASE_PROJECT_ID`
+- `FIREBASE_CLIENT_EMAIL`
+- `FIREBASE_PRIVATE_KEY` (use `\\n` for line breaks)
 
-Google Sheet setup:
-1. Create sheet tab `Snapshot`
-2. Create sheet tab `Rows`
-3. Share the sheet with the service account email (Editor access)
+Behavior:
+- Refresh page: app reads latest snapshot from server API.
+- Edit/add/update: app writes snapshot to server API immediately.
 
-Usage in app:
-- Open `Account Balance` menu (desktop)
-- `Push` = send current app data to Google Sheets
-- `Pull` = load data from Google Sheets into app
+Initial seed:
+- Run app (`npm run dev`)
+- Run `npm run seed:firebase` to upload `data/budget.json` through the server API.

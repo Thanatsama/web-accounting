@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed:firebase": "node scripts/seed-server-budget.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -14,8 +15,7 @@
     "@fontsource/inter": "^5.2.8",
     "@mui/icons-material": "^7.3.8",
     "@mui/material": "^7.3.8",
-    "dayjs": "^1.11.19",
-    "googleapis": "^171.4.0",
+    "firebase-admin": "^13.5.0",
     "lodash": "^4.17.23",
     "next": "16.1.6",
     "react": "19.2.3",

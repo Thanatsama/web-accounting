@@ -17,8 +17,6 @@ import {
   useTheme,
 } from "@mui/material";
 import {
-  pullBudgetFromGoogleSheets,
-  pushBudgetToGoogleSheets,
   readBudgetFromServer,
   writeBudgetToServer,
 } from "@/lib/budgetApi";
@@ -156,7 +154,6 @@ export default function AccountBalanceMenu() {
   const [draftMonthlyIncome, setDraftMonthlyIncome] = useState("0");
   const [testMonthValue, setTestMonthValueState] = useState<string>("");
   const [restoreError, setRestoreError] = useState<string>("");
-  const [syncMessage, setSyncMessage] = useState<string>("");
   const restoreInputRef = useRef<HTMLInputElement | null>(null);
   const currentDate = useEffectiveCurrentDate();
 
@@ -291,32 +288,6 @@ export default function AccountBalanceMenu() {
 
   const backupData = () => {
     downloadBackupFile(snapshot);
-  };
-
-  const pushToGoogleSheets = () => {
-    void (async () => {
-      const ok = await pushBudgetToGoogleSheets(snapshot);
-      setSyncMessage(ok ? "Push to Google Sheets สำเร็จ" : "Push to Google Sheets ไม่สำเร็จ");
-    })();
-  };
-
-  const pullFromGoogleSheets = () => {
-    void (async () => {
-      const nextSnapshot = await pullBudgetFromGoogleSheets();
-      if (!nextSnapshot) {
-        setSyncMessage("Pull from Google Sheets ไม่สำเร็จ");
-        return;
-      }
-      await writeBudgetSnapshot(nextSnapshot);
-      void writeBudgetToServer(nextSnapshot);
-      setSnapshot(nextSnapshot);
-      setSyncMessage("Pull from Google Sheets สำเร็จ");
-      window.dispatchEvent(
-        new CustomEvent("account-balance-updated", {
-          detail: { snapshot: nextSnapshot },
-        }),
-      );
-    })();
   };
 
   const restoreDataFromFile = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -543,28 +514,6 @@ export default function AccountBalanceMenu() {
             </Box>
           )}
 
-          {!isMobileView && (
-            <Box sx={{ mt: 1.4, pt: 1.2, borderTop: "1px solid rgba(0,0,0,0.08)" }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
-                <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                  Google Sheets Sync
-                </Typography>
-                <Stack direction="row" spacing={1}>
-                  <Button size="small" variant="outlined" onClick={pullFromGoogleSheets}>
-                    Pull
-                  </Button>
-                  <Button size="small" variant="outlined" onClick={pushToGoogleSheets}>
-                    Push
-                  </Button>
-                </Stack>
-              </Stack>
-              {syncMessage && (
-                <Typography variant="caption" sx={{ display: "block", mt: 0.8, color: "text.secondary" }}>
-                  {syncMessage}
-                </Typography>
-              )}
-            </Box>
-          )}
         </Box>
       </Popover>
     </>

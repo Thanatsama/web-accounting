@@ -1,72 +1,101 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { NextResponse } from "next/server";
+import { cert, getApps, initializeApp } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
 import { BudgetSnapshot, DEFAULT_BUDGET_SNAPSHOT } from "@/lib/budgetState";
 
-const DATA_DIR = `${process.cwd()}/data`;
-const DATA_FILE = `${DATA_DIR}/budget.json`;
+const COLLECTION_NAME = "web_accounting";
+const DOCUMENT_ID = "budget_snapshot";
 
-async function ensureFile(): Promise<void> {
-  await mkdir(DATA_DIR, { recursive: true });
-  try {
-    await readFile(DATA_FILE, "utf-8");
-  } catch {
-    await writeFile(DATA_FILE, JSON.stringify(DEFAULT_BUDGET_SNAPSHOT, null, 2), "utf-8");
+function getDb() {
+  if (getApps().length === 0) {
+    initializeApp({
+      credential: cert({
+        projectId: requiredEnv("FIREBASE_PROJECT_ID"),
+        clientEmail: requiredEnv("FIREBASE_CLIENT_EMAIL"),
+        privateKey: requiredEnv("FIREBASE_PRIVATE_KEY").replace(/\\n/g, "\n"),
+      }),
+    });
   }
+  return getFirestore();
 }
 
-async function readSnapshot(): Promise<BudgetSnapshot> {
-  await ensureFile();
-  const raw = await readFile(DATA_FILE, "utf-8");
-  const parsed = JSON.parse(raw) as Partial<BudgetSnapshot>;
+function requiredEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing server env: ${name}`);
+  }
+  return value;
+}
+
+function asNumber(value: unknown, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizeSnapshot(value: unknown): BudgetSnapshot {
+  if (!value || typeof value !== "object") {
+    return DEFAULT_BUDGET_SNAPSHOT;
+  }
+
+  const candidate = value as Partial<BudgetSnapshot>;
+  const accountBalanceByMonth =
+    candidate.accountBalanceByMonth && typeof candidate.accountBalanceByMonth === "object"
+      ? Object.fromEntries(
+          Object.entries(candidate.accountBalanceByMonth).map(([key, monthValue]) => [
+            key,
+            asNumber(monthValue, 0),
+          ]),
+        )
+      : {};
+  const monthlyIncomeByMonth =
+    candidate.monthlyIncomeByMonth && typeof candidate.monthlyIncomeByMonth === "object"
+      ? Object.fromEntries(
+          Object.entries(candidate.monthlyIncomeByMonth).map(([key, monthValue]) => [
+            key,
+            asNumber(monthValue, 0),
+          ]),
+        )
+      : {};
+
   return {
-    accountBalance: Number(parsed.accountBalance ?? 0),
-    accountBalanceByMonth:
-      parsed.accountBalanceByMonth && typeof parsed.accountBalanceByMonth === "object"
-        ? Object.fromEntries(
-            Object.entries(parsed.accountBalanceByMonth).map(([key, value]) => [key, Number(value ?? 0)]),
-          )
-        : {},
-    monthlyIncome: Number(parsed.monthlyIncome ?? 0),
-    monthlyIncomeByMonth:
-      parsed.monthlyIncomeByMonth && typeof parsed.monthlyIncomeByMonth === "object"
-        ? Object.fromEntries(
-            Object.entries(parsed.monthlyIncomeByMonth).map(([key, value]) => [key, Number(value ?? 0)]),
-          )
-        : {},
-    totalTables: Math.max(1, Number(parsed.totalTables ?? 1)),
-    rows: Array.isArray(parsed.rows) ? parsed.rows : [],
-    updatedAt: Number(parsed.updatedAt ?? 0),
+    accountBalance: asNumber(candidate.accountBalance, 0),
+    accountBalanceByMonth,
+    monthlyIncome: asNumber(candidate.monthlyIncome, 0),
+    monthlyIncomeByMonth,
+    totalTables: Math.max(1, Math.floor(asNumber(candidate.totalTables, 1))),
+    rows: Array.isArray(candidate.rows) ? candidate.rows : [],
+    updatedAt: asNumber(candidate.updatedAt, 0),
   };
 }
 
 export async function GET() {
-  const snapshot = await readSnapshot();
-  return NextResponse.json(snapshot);
+  try {
+    const db = getDb();
+    const snapshotRef = db.collection(COLLECTION_NAME).doc(DOCUMENT_ID);
+    const doc = await snapshotRef.get();
+    if (!doc.exists) {
+      return NextResponse.json(DEFAULT_BUDGET_SNAPSHOT);
+    }
+    return NextResponse.json(normalizeSnapshot(doc.data()));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown server error";
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+  }
 }
 
 export async function PUT(request: Request) {
-  const payload = (await request.json()) as Partial<BudgetSnapshot>;
-  const nextSnapshot: BudgetSnapshot = {
-    accountBalance: Number(payload.accountBalance ?? 0),
-    accountBalanceByMonth:
-      payload.accountBalanceByMonth && typeof payload.accountBalanceByMonth === "object"
-        ? Object.fromEntries(
-            Object.entries(payload.accountBalanceByMonth).map(([key, value]) => [key, Number(value ?? 0)]),
-          )
-        : {},
-    monthlyIncome: Number(payload.monthlyIncome ?? 0),
-    monthlyIncomeByMonth:
-      payload.monthlyIncomeByMonth && typeof payload.monthlyIncomeByMonth === "object"
-        ? Object.fromEntries(
-            Object.entries(payload.monthlyIncomeByMonth).map(([key, value]) => [key, Number(value ?? 0)]),
-          )
-        : {},
-    totalTables: Math.max(1, Number(payload.totalTables ?? 1)),
-    rows: Array.isArray(payload.rows) ? payload.rows : [],
-    updatedAt: Number(payload.updatedAt ?? Date.now()),
-  };
+  try {
+    const payload = (await request.json()) as Partial<BudgetSnapshot>;
+    const nextSnapshot = normalizeSnapshot({
+      ...payload,
+      updatedAt: asNumber(payload.updatedAt, Date.now()),
+    });
 
-  await ensureFile();
-  await writeFile(DATA_FILE, JSON.stringify(nextSnapshot, null, 2), "utf-8");
-  return NextResponse.json(nextSnapshot);
+    const db = getDb();
+    await db.collection(COLLECTION_NAME).doc(DOCUMENT_ID).set(nextSnapshot);
+    return NextResponse.json(nextSnapshot);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown server error";
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+  }
 }
