@@ -53,3 +53,23 @@ Deploy with Vercel:
 Data safety:
 - Use `Backup Data` in the account menu to export JSON.
 - Use `Restore Data` in the same menu on another device to import your data back.
+
+## Google Sheets sync (read/write)
+
+Set environment variables:
+- `GOOGLE_SERVICE_ACCOUNT_EMAIL`
+- `GOOGLE_PRIVATE_KEY` (keep line breaks as `\\n` in env)
+- `GOOGLE_SHEET_ID`
+
+Alternative (recommended): use key file instead
+- `GOOGLE_SERVICE_ACCOUNT_KEY_FILE` (e.g. `web-accounting-489404-87a49b322bc2.json`)
+
+Google Sheet setup:
+1. Create sheet tab `Snapshot`
+2. Create sheet tab `Rows`
+3. Share the sheet with the service account email (Editor access)
+
+Usage in app:
+- Open `Account Balance` menu (desktop)
+- `Push` = send current app data to Google Sheets
+- `Pull` = load data from Google Sheets into app
