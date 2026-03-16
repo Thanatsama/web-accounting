@@ -1,4 +1,14 @@
 export type RowStatus = "PENDING" | "PAID";
+export type CardType = "JCB" | "THE_1" | "CARD_X" | "FIRST_CHOICE" | "UOB_ONE" | "SHOPPEE";
+
+export const CARD_TYPE_OPTIONS: Array<{ value: CardType; label: string }> = [
+  { value: "JCB", label: "JCB" },
+  { value: "THE_1", label: "The 1" },
+  { value: "CARD_X", label: "Card X" },
+  { value: "FIRST_CHOICE", label: "First Choice" },
+  { value: "UOB_ONE", label: "UOB One" },
+  { value: "SHOPPEE", label: "Shopee" },
+];
 
 export type BudgetRow = {
   id: number;
@@ -11,6 +21,8 @@ export type BudgetRow = {
   compensationByMonth?: Record<string, number>;
   source: string;
   sourceByMonth?: Record<string, string>;
+  cardType?: CardType;
+  cardTypeByMonth?: Record<string, CardType>;
   status: RowStatus;
   statusByMonth?: Record<string, RowStatus>;
   isCancelled?: boolean;

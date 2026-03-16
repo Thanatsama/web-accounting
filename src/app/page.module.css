@@ -63,6 +63,24 @@
   color: #212938;
 }
 
+.pendingCardTypeInline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  margin-left: 0.25rem;
+  font-size: 0.84rem;
+  color: #445066;
+}
+
+.pendingCardDot {
+  color: #6f7888;
+}
+
+.pendingCardIcon {
+  border-radius: 50%;
+  object-fit: cover;
+}
+
 .pendingMeta {
   font-size: 0.82rem;
   color: #6e7787;

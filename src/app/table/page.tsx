@@ -23,7 +23,8 @@ import {
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import { readBudgetFromServer, writeBudgetToServer } from '@/lib/budgetApi';
 import { getCurrentRoundIndex, getRoundLabel } from '@/lib/budgetCalendar';
-import { BudgetRow, RowStatus } from '@/lib/budgetState';
+import { BudgetRow, CardType, RowStatus } from '@/lib/budgetState';
+import { CARD_TYPE_SELECT_OPTIONS, CardTypeInput } from '@/lib/cardBrand';
 import { readBudgetSnapshot, updateBudgetSnapshot, writeBudgetSnapshot } from '@/lib/indexedDbBudget';
 import { useEffectiveCurrentDate } from '@/lib/testingDate';
 import DesktopRowsTable from '@/components/table/DesktopRowsTable';
@@ -40,6 +41,7 @@ type DisplayRow = {
   monthsLeft: number;
   compensation: number;
   source: string;
+  cardType?: CardType;
   status: RowStatus;
 };
 
@@ -100,6 +102,11 @@ function resolveStatusByMonth(row: BudgetRow, tableIndex: number): RowStatus {
   return row.statusByMonth?.[monthKey] ?? row.status;
 }
 
+function resolveCardTypeByMonth(row: BudgetRow, tableIndex: number): CardType | undefined {
+  const monthKey = String(tableIndex);
+  return row.cardTypeByMonth?.[monthKey] ?? row.cardType;
+}
+
 function resolveMonthlyIncomeByMonth(
   monthlyIncome: number,
   monthlyIncomeByMonth: Record<string, number> | undefined,
@@ -153,6 +160,7 @@ function buildDisplayRows(rows: BudgetRow[], tableIndex: number): DisplayRow[] {
         monthsLeft: endMonth - tableIndex + 1,
         compensation: resolveCompensationByMonth(row, tableIndex),
         source: resolveSourceByMonth(row, tableIndex),
+        cardType: resolveCardTypeByMonth(row, tableIndex),
         status: resolveStatusByMonth(row, tableIndex),
       });
     }
@@ -189,11 +197,13 @@ export default function TablePage() {
   const [spreadMonths, setSpreadMonths] = useState('1');
   const [compensation, setCompensation] = useState('0');
   const [source, setSource] = useState('');
+  const [cardType, setCardType] = useState<CardTypeInput>('');
   const [status, setStatus] = useState<RowStatus>('PENDING');
   const [editDetail, setEditDetail] = useState('');
   const [editExpense, setEditExpense] = useState('0');
   const [editCompensation, setEditCompensation] = useState('0');
   const [editSource, setEditSource] = useState('');
+  const [editCardType, setEditCardType] = useState<CardTypeInput>('');
   const [editStatus, setEditStatus] = useState<RowStatus>('PENDING');
   const currentDate = useEffectiveCurrentDate();
   const formFieldSx: SxProps<Theme> = {
@@ -288,6 +298,7 @@ export default function TablePage() {
     setSpreadMonths('1');
     setCompensation('0');
     setSource('');
+    setCardType('');
     setStatus('PENDING');
   };
 
@@ -314,6 +325,7 @@ export default function TablePage() {
         spreadMonths: normalizedSpread,
         compensation: compensationNumber,
         source: source.trim(),
+        cardType: cardType || undefined,
         status,
       };
 
@@ -355,8 +367,15 @@ export default function TablePage() {
 
   const updateRowField = (
     rowId: number,
-    patch: Partial<Pick<BudgetRow, 'detail' | 'status' | 'isCancelled'>>,
-    monthPatch?: { tableIndex: number; expense: number; compensation: number; source: string; status: RowStatus },
+    patch: Partial<Pick<BudgetRow, 'detail' | 'status' | 'isCancelled' | 'cardType'>>,
+    monthPatch?: {
+      tableIndex: number;
+      expense: number;
+      compensation: number;
+      source: string;
+      status: RowStatus;
+      cardType: CardTypeInput;
+    },
   ) => {
     const updatedAt = nowTimestamp();
     setRows((prev) => {
@@ -366,9 +385,23 @@ export default function TablePage() {
         if (!monthPatch) return { ...row, ...patch };
 
         const monthKey = String(monthPatch.tableIndex);
+        const nextCardTypeByMonth = { ...(row.cardTypeByMonth ?? {}) };
+        let nextDefaultCardType = row.cardType;
+
+        if (monthPatch.tableIndex === 1) {
+          nextDefaultCardType = monthPatch.cardType || undefined;
+          delete nextCardTypeByMonth[monthKey];
+        } else if (monthPatch.cardType) {
+          nextCardTypeByMonth[monthKey] = monthPatch.cardType;
+        } else {
+          delete nextCardTypeByMonth[monthKey];
+        }
+
         return {
           ...row,
           ...patch,
+          cardType: nextDefaultCardType,
+          cardTypeByMonth: Object.keys(nextCardTypeByMonth).length > 0 ? nextCardTypeByMonth : undefined,
           expenseByMonth: {
             ...(row.expenseByMonth ?? {}),
             [monthKey]: monthPatch.expense,
@@ -405,6 +438,7 @@ export default function TablePage() {
     const monthCompensation = resolveCompensationByMonth(target, tableIndex);
     const monthSource = resolveSourceByMonth(target, tableIndex);
     const monthStatus = resolveStatusByMonth(target, tableIndex);
+    const monthCardType = resolveCardTypeByMonth(target, tableIndex);
 
     setEditingRowId(target.id);
     setEditingTableIndex(tableIndex);
@@ -412,6 +446,7 @@ export default function TablePage() {
     setEditExpense(String(monthExpense));
     setEditCompensation(String(monthCompensation));
     setEditSource(monthSource);
+    setEditCardType(monthCardType ?? '');
     setEditStatus(monthStatus);
     setEditingCanCancel(Boolean(target.planMeta) && !target.isCancelled);
     setIsEditOpen(true);
@@ -422,6 +457,7 @@ export default function TablePage() {
     setEditingRowId(null);
     setEditingTableIndex(1);
     setEditingCanCancel(false);
+    setEditCardType('');
   };
 
   const handleSaveEdit = () => {
@@ -436,12 +472,14 @@ export default function TablePage() {
       editingRowId,
       {
         detail: editDetail,
+        cardType: editCardType || undefined,
       },
       {
         tableIndex: editingTableIndex,
         expense: nextExpense,
         compensation: nextCompensation,
         source: editSource,
+        cardType: editCardType,
         status: editStatus,
       },
     );
@@ -849,6 +887,21 @@ export default function TablePage() {
                   size="small"
                   fullWidth
                   select
+                  label="ประเภทบัตร"
+                  value={cardType}
+                  onChange={(event) => setCardType(event.target.value as CardTypeInput)}
+                  sx={formFieldSx}
+                >
+                  {map(CARD_TYPE_SELECT_OPTIONS, (option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  size="small"
+                  fullWidth
+                  select
                   label="สถานะ"
                   value={status}
                   onChange={(event) => setStatus(event.target.value as RowStatus)}
@@ -937,6 +990,21 @@ export default function TablePage() {
                 onChange={(event) => setEditSource(event.target.value)}
                 sx={formFieldSx}
               />
+              <TextField
+                size="small"
+                fullWidth
+                select
+                label="ประเภทบัตร"
+                value={editCardType}
+                onChange={(event) => setEditCardType(event.target.value as CardTypeInput)}
+                sx={formFieldSx}
+              >
+                {map(CARD_TYPE_SELECT_OPTIONS, (option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </TextField>
               <TextField
                 size="small"
                 fullWidth

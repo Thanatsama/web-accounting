@@ -1,4 +1,4 @@
-import { RowStatus } from "@/lib/budgetState";
+import { CardType, RowStatus } from "@/lib/budgetState";
 
 export type MonthDisplayRow = {
   id: number;
@@ -8,6 +8,7 @@ export type MonthDisplayRow = {
   monthsLeft: number;
   compensation: number;
   source: string;
+  cardType?: CardType;
   status: RowStatus;
   balanceAfter: number;
 };

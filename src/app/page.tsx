@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import map from 'lodash/map';
 import { Box, Chip, Container, Stack, Typography } from '@mui/material';
 import MarketingLayout from '@/components/layout/MarketingLayout';
 import { readBudgetFromServer } from '@/lib/budgetApi';
 import { getCurrentRoundIndex, getRoundLabel } from '@/lib/budgetCalendar';
-import { BudgetRow, BudgetSnapshot, DEFAULT_BUDGET_SNAPSHOT } from '@/lib/budgetState';
+import { BudgetRow, BudgetSnapshot, CardType, DEFAULT_BUDGET_SNAPSHOT } from '@/lib/budgetState';
+import { getCardIcon, getCardLabel } from '@/lib/cardBrand';
 import { readBudgetSnapshot, writeBudgetSnapshot } from '@/lib/indexedDbBudget';
 import { useEffectiveCurrentDate } from '@/lib/testingDate';
 import styles from './page.module.css';
@@ -18,6 +20,7 @@ type RoundRow = {
   expense: number;
   compensation: number;
   source: string;
+  cardType?: CardType;
   status: 'PENDING' | 'PAID';
 };
 
@@ -46,6 +49,11 @@ function resolveSourceByMonth(row: BudgetRow, tableIndex: number): string {
 function resolveStatusByMonth(row: BudgetRow, tableIndex: number): 'PENDING' | 'PAID' {
   const key = String(tableIndex);
   return row.statusByMonth?.[key] ?? row.status;
+}
+
+function resolveCardTypeByMonth(row: BudgetRow, tableIndex: number): CardType | undefined {
+  const key = String(tableIndex);
+  return row.cardTypeByMonth?.[key] ?? row.cardType;
 }
 
 function getRowStartMonth(row: BudgetRow): number {
@@ -95,6 +103,7 @@ function buildRoundRows(rows: BudgetRow[], roundIndex: number): RoundRow[] {
     expense: resolveExpenseByMonth(row, roundIndex),
     compensation: resolveCompensationByMonth(row, roundIndex),
     source: resolveSourceByMonth(row, roundIndex),
+    cardType: resolveCardTypeByMonth(row, roundIndex),
     status: resolveStatusByMonth(row, roundIndex),
   }));
 }
@@ -244,6 +253,19 @@ export default function Home() {
                   <Box>
                     <Typography className={styles.pendingDetail}>
                       {row.itemNo}. {row.detail || '-'}
+                      {row.cardType ? (
+                        <Box component="span" className={styles.pendingCardTypeInline}>
+                          <span className={styles.pendingCardDot}>•</span>
+                          <Image
+                            src={getCardIcon(row.cardType) ?? ''}
+                            alt={getCardLabel(row.cardType)}
+                            width={14}
+                            height={14}
+                            className={styles.pendingCardIcon}
+                          />
+                          <span>{getCardLabel(row.cardType)}</span>
+                        </Box>
+                      ) : null}
                     </Typography>
                     <Typography className={styles.pendingMeta}>
                       ค่าใช้จ่าย {formatNumber(row.expense)} THB

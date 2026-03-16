@@ -1,8 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import { Chip, Stack, Typography } from "@mui/material";
 import map from "lodash/map";
 import { MonthDisplayRow } from "@/components/table/types";
+import { getCardIcon, getCardLabel } from "@/lib/cardBrand";
 import styles from "./MobileMonthSummary.module.css";
 
 type MobileMonthSummaryProps = {
@@ -17,6 +19,19 @@ export default function MobileMonthSummary({ rows }: MobileMonthSummaryProps) {
         <div key={`mobile-row-${row.id}`} className={styles.mobileItemRow}>
           <Typography className={styles.mobileItemTitle}>
             {row.itemNo}. {row.detail || "-"}
+            {row.cardType ? (
+              <span className={styles.mobileCardTypeInline}>
+                <span>•</span>
+                <Image
+                  src={getCardIcon(row.cardType) ?? ""}
+                  alt={getCardLabel(row.cardType)}
+                  width={13}
+                  height={13}
+                  className={styles.mobileCardIcon}
+                />
+                <span>{getCardLabel(row.cardType)}</span>
+              </span>
+            ) : null}
           </Typography>
           <Stack direction="row" justifyContent="space-between" alignItems="center">
             <Typography className={styles.mobileSummaryLabel}>ค่าใช้จ่าย {row.expense.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} THB</Typography>
