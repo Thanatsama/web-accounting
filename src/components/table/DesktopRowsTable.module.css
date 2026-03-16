@@ -59,39 +59,3 @@
   border-radius: 50%;
   object-fit: cover;
 }
-
-.jcb {
-  background: linear-gradient(135deg, rgba(18, 69, 163, 0.14), rgba(196, 24, 53, 0.14) 52%, rgba(1, 126, 81, 0.14));
-  color: #17355f;
-  border: 1px solid rgba(23, 53, 95, 0.18);
-}
-
-.the1 {
-  background: linear-gradient(135deg, rgba(34, 33, 39, 0.1), rgba(232, 40, 60, 0.14));
-  color: #7d1f2d;
-  border: 1px solid rgba(125, 31, 45, 0.2);
-}
-
-.cardx {
-  background: linear-gradient(135deg, rgba(43, 183, 211, 0.14), rgba(95, 127, 216, 0.14));
-  color: #2d4e9f;
-  border: 1px solid rgba(45, 78, 159, 0.2);
-}
-
-.firstChoice {
-  background: linear-gradient(135deg, rgba(31, 102, 167, 0.14), rgba(72, 149, 210, 0.12));
-  color: #21598d;
-  border: 1px solid rgba(33, 89, 141, 0.2);
-}
-
-.uobOne {
-  background: linear-gradient(135deg, rgba(160, 168, 183, 0.14), rgba(218, 224, 236, 0.3));
-  color: #5a6678;
-  border: 1px solid rgba(90, 102, 120, 0.2);
-}
-
-.shopee {
-  background: linear-gradient(135deg, rgba(255, 92, 35, 0.14), rgba(255, 135, 76, 0.14));
-  color: #a8431f;
-  border: 1px solid rgba(168, 67, 31, 0.2);
-}
