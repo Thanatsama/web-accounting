@@ -59,6 +59,10 @@
 }
 
 .pendingDetail {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
   font-weight: 600;
   color: #212938;
 }
@@ -66,11 +70,11 @@
 .pendingMonthsBadge {
   display: inline-flex;
   align-items: center;
-  margin-left: 0.45rem;
-  padding: 0.08rem 0.48rem;
+  padding: 0.20rem 0.48rem;
   border-radius: 999px;
   font-size: 0.74rem;
   font-weight: 700;
+  line-height: 1.1;
 }
 
 .pendingMonthsBadgeGreen {
@@ -95,9 +99,9 @@
   display: inline-flex;
   align-items: center;
   gap: 0.28rem;
-  margin-left: 0.25rem;
   font-size: 0.84rem;
   color: #445066;
+  line-height: 1.1;
 }
 
 .pendingCardDot {
