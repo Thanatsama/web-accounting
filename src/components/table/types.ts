@@ -6,6 +6,7 @@ export type MonthDisplayRow = {
   detail: string;
   expense: number;
   monthsLeft: number;
+  totalMonths: number;
   compensation: number;
   source: string;
   cardType?: CardType;

@@ -39,6 +39,7 @@ type DisplayRow = {
   detail: string;
   expense: number;
   monthsLeft: number;
+  totalMonths: number;
   compensation: number;
   source: string;
   cardType?: CardType;
@@ -158,6 +159,7 @@ function buildDisplayRows(rows: BudgetRow[], tableIndex: number): DisplayRow[] {
         detail: row.detail,
         expense: resolveExpenseByMonth(row, tableIndex),
         monthsLeft: endMonth - tableIndex + 1,
+        totalMonths: Math.max(1, Math.floor(row.spreadMonths)),
         compensation: resolveCompensationByMonth(row, tableIndex),
         source: resolveSourceByMonth(row, tableIndex),
         cardType: resolveCardTypeByMonth(row, tableIndex),

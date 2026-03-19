@@ -63,6 +63,34 @@
   color: #212938;
 }
 
+.pendingMonthsBadge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.45rem;
+  padding: 0.08rem 0.48rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.pendingMonthsBadgeGreen {
+  color: #1f6a41;
+  background: linear-gradient(135deg, #e8f7ee, #d8f2e4);
+  border: 1px solid #b7e6ca;
+}
+
+.pendingMonthsBadgeYellow {
+  color: #7b6020;
+  background: linear-gradient(135deg, #fff8de, #fff2c9);
+  border: 1px solid #f2e3a7;
+}
+
+.pendingMonthsBadgeBlue {
+  color: #0f4f8a;
+  background: linear-gradient(135deg, #e8f2ff, #deeeff);
+  border: 1px solid #c7dcf8;
+}
+
 .pendingCardTypeInline {
   display: inline-flex;
   align-items: center;

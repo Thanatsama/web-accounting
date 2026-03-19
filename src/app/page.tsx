@@ -17,6 +17,8 @@ type RoundRow = {
   id: number;
   itemNo: number;
   detail: string;
+  monthsLeft: number;
+  totalMonths: number;
   expense: number;
   compensation: number;
   source: string;
@@ -54,6 +56,12 @@ function resolveStatusByMonth(row: BudgetRow, tableIndex: number): 'PENDING' | '
 function resolveCardTypeByMonth(row: BudgetRow, tableIndex: number): CardType | undefined {
   const key = String(tableIndex);
   return row.cardTypeByMonth?.[key] ?? row.cardType;
+}
+
+function getMonthsBadgeClassName(monthsLeft: number): string {
+  if (monthsLeft <= 1) return styles.pendingMonthsBadgeGreen;
+  if (monthsLeft <= 5) return styles.pendingMonthsBadgeYellow;
+  return styles.pendingMonthsBadgeBlue;
 }
 
 function getRowStartMonth(row: BudgetRow): number {
@@ -100,6 +108,8 @@ function buildRoundRows(rows: BudgetRow[], roundIndex: number): RoundRow[] {
     id: row.id,
     itemNo: index + 1,
     detail: row.detail,
+    monthsLeft: getRowEndMonth(row) - roundIndex + 1,
+    totalMonths: Math.max(1, Math.floor(row.spreadMonths)),
     expense: resolveExpenseByMonth(row, roundIndex),
     compensation: resolveCompensationByMonth(row, roundIndex),
     source: resolveSourceByMonth(row, roundIndex),
@@ -253,6 +263,12 @@ export default function Home() {
                   <Box>
                     <Typography className={styles.pendingDetail}>
                       {row.itemNo}. {row.detail || '-'}
+                      <Box
+                        component="span"
+                        className={`${styles.pendingMonthsBadge} ${getMonthsBadgeClassName(row.monthsLeft)}`}
+                      >
+                        เหลือ {row.monthsLeft} เดือน
+                      </Box>
                       {row.cardType ? (
                         <Box component="span" className={styles.pendingCardTypeInline}>
                           <span className={styles.pendingCardDot}>•</span>
