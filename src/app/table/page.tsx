@@ -46,6 +46,11 @@ type DisplayRow = {
   status: RowStatus;
 };
 
+type PendingSummaryAggregateItem = {
+  detail: string;
+  totalExpense: number;
+};
+
 const STATUS_OPTIONS: RowStatus[] = ['PENDING', 'PAID'];
 
 function formatNumber(value: number): string {
@@ -145,6 +150,12 @@ function parseNumberInput(value: string): number | null {
   return parsed;
 }
 
+function getRemainingValueClassName(value: number): string {
+  if (value > 50000) return styles.remainingValueBlue;
+  if (value > 10000) return styles.remainingValueYellow;
+  return styles.remainingValueGreen;
+}
+
 function buildDisplayRows(rows: BudgetRow[], tableIndex: number): DisplayRow[] {
   const result: Omit<DisplayRow, 'itemNo'>[] = [];
 
@@ -188,6 +199,7 @@ export default function TablePage() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isMonthIncomeOpen, setIsMonthIncomeOpen] = useState(false);
   const [showArchive, setShowArchive] = useState(false);
+  const [showPendingSummary, setShowPendingSummary] = useState(false);
   const [editingRowId, setEditingRowId] = useState<number | null>(null);
   const [editingTableIndex, setEditingTableIndex] = useState<number>(1);
   const [editingCanCancel, setEditingCanCancel] = useState(false);
@@ -566,6 +578,37 @@ export default function TablePage() {
     });
   }, [tableIndexes, rows]);
 
+  const pendingSummaryAggregates = useMemo(() => {
+    const grouped = new Map<string, PendingSummaryAggregateItem>();
+
+    tableIndexes.forEach((tableIndex) => {
+      buildDisplayRows(rows, tableIndex)
+        .filter((row) => row.status === 'PENDING')
+        .forEach((row) => {
+          const originalRow = rows.find((item) => item.id === row.id);
+          if (originalRow?.planMeta) return;
+
+          const detail = row.detail || `รายการ ${row.id}`;
+          const existing = grouped.get(detail);
+          if (existing) {
+            existing.totalExpense += row.expense;
+            return;
+          }
+          grouped.set(detail, {
+            detail,
+            totalExpense: row.expense,
+          });
+        });
+    });
+
+    return Array.from(grouped.values()).sort((a, b) => b.totalExpense - a.totalExpense);
+  }, [tableIndexes, rows]);
+
+  const totalPendingExpense = useMemo(
+    () => pendingSummaryAggregates.reduce((sum, item) => sum + item.totalExpense, 0),
+    [pendingSummaryAggregates],
+  );
+
   const monthEndingByMonth = useMemo(() => {
     const endings: number[] = [];
     for (let i = 0; i < tableIndexes.length; i += 1) {
@@ -655,13 +698,28 @@ export default function TablePage() {
           </Typography>
         )}
 
-        {!isMobileView && (
-          <Box className={styles.archiveToolbar}>
-            <Button size="small" variant="outlined" className={styles.archiveButton} onClick={() => setShowArchive(true)}>
+        <Box className={styles.archiveToolbar}>
+          <Button
+            size="small"
+            variant="outlined"
+            className={styles.pendingSummaryButton}
+            onClick={() => setShowPendingSummary(true)}
+            color="success"
+          >
+            สรุปยอดค้าง
+          </Button>
+          {!isMobileView && (
+            <Button
+              size="small"
+              variant="outlined"
+              className={styles.archiveButton}
+              color="primary"
+              onClick={() => setShowArchive(true)}
+            >
               {`Archive (${archivedTableIndexes.length})`}
             </Button>
-          </Box>
-        )}
+          )}
+        </Box>
 
         <Box className={styles.tableList}>
           {map(activeTableIndexes, (tableIndex) => {
@@ -735,6 +793,72 @@ export default function TablePage() {
             );
           })}
         </Box>
+
+        <Dialog
+          open={showPendingSummary}
+          onClose={() => setShowPendingSummary(false)}
+          fullWidth
+          maxWidth="md"
+          slotProps={{
+            paper: {
+              sx: {
+                borderRadius: 2,
+                background: 'linear-gradient(180deg, #ffffff, #f8fbff)',
+                border: '1px solid rgba(0,0,0,0.08)',
+              },
+            },
+          }}
+        >
+          <DialogTitle sx={{ pb: 0.5 }}>
+            <Typography component="div" variant="h6" sx={{ fontWeight: 700 }}>
+              สรุปค่าใช้จ่ายที่ยังไม่ได้จ่าย
+            </Typography>
+          </DialogTitle>
+          <DialogContent sx={{ pt: '8px !important', maxHeight: '72vh' }}>
+            <Box className={styles.pendingSummarySingleCard}>
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                justifyContent="space-between"
+                alignItems={{ xs: 'flex-start', sm: 'center' }}
+                spacing={1}
+                mb={1.3}
+              >
+                <Box>
+                  <Typography className={styles.pendingSummarySectionTitle}>สรุปรวมสำหรับปิดยอดก่อนกำหนด</Typography>
+                  <Typography className={styles.pendingSummarySubtle}>
+                    รวมเฉพาะรายการสินค้าที่ยัง `PENDING` และไม่รวม plan
+                  </Typography>
+                </Box>
+                <Box className={styles.pendingSummaryTotalPill}>
+                  <Typography className={styles.pendingSummaryTotalLabel}>ยอดคงเหลือรวม</Typography>
+                  <Typography className={`${styles.pendingSummaryTotalValue} ${getRemainingValueClassName(totalPendingExpense)}`}>
+                    {formatNumber(totalPendingExpense)} THB
+                  </Typography>
+                </Box>
+              </Stack>
+
+              <Stack spacing={0.85}>
+                {pendingSummaryAggregates.length === 0 && <Typography color="text.secondary">ไม่มีรายการค้างชำระ</Typography>}
+                {map(pendingSummaryAggregates, (item, index) => (
+                  <Box key={`pending-aggregate-${item.detail}`} className={styles.pendingAggregateRow}>
+                    <Typography className={styles.pendingAggregateLabel}>
+                      {index + 1}. {item.detail}
+                    </Typography>
+                    <Typography className={`${styles.pendingAggregateValue} `}>
+                      <span className={`${getRemainingValueClassName(item.totalExpense)}`}>
+                        {formatNumber(item.totalExpense)} THB
+                      </span>
+                    
+                    </Typography>
+                  </Box>
+                ))}
+              </Stack>
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setShowPendingSummary(false)}>ปิด</Button>
+          </DialogActions>
+        </Dialog>
 
         <Dialog
           open={showArchive}

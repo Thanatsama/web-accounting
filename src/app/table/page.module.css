@@ -43,14 +43,183 @@
 .archiveToolbar {
   display: flex;
   justify-content: flex-end;
+  gap: 0.55rem;
   margin-bottom: 0.55rem;
 }
 
+.pendingSummaryButton,
 .archiveButton {
   min-height: 28px;
   border-radius: 999px;
   font-size: 0.78rem;
   padding-inline: 0.65rem;
+}
+
+.pendingSummaryButton {
+  color: #18794e !important;
+  border-color: rgba(24, 121, 78, 0.38) !important;
+  background: linear-gradient(145deg, #f5fff9, #ffffff);
+}
+
+.pendingSummaryButton:hover {
+  border-color: rgba(24, 121, 78, 0.52) !important;
+  color: #14663f !important;
+  background: linear-gradient(145deg, #effcf4, #ffffff);
+}
+
+.archiveButton {
+  color: #1e5ebc !important;
+  border-color: rgba(30, 94, 188, 0.34) !important;
+  background: linear-gradient(145deg, #f4f9ff, #ffffff);
+}
+
+.archiveButton:hover {
+  border-color: rgba(30, 94, 188, 0.48) !important;
+  color: #154a96 !important;
+  background: linear-gradient(145deg, #edf5ff, #ffffff);
+}
+
+.pendingSummaryHero {
+  border-radius: 16px;
+  padding: 0.95rem 1rem;
+  background: linear-gradient(145deg, #eef6ff, #f9fbff);
+  border: 1px solid rgba(0, 113, 227, 0.18);
+}
+
+.pendingSummaryHeroLabel {
+  font-size: 0.82rem;
+  color: #5f7087;
+}
+
+.pendingSummaryHeroValue {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #163d72;
+}
+
+.pendingSummarySection {
+  border-radius: 16px;
+  padding: 0.95rem 1rem;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.pendingSummarySectionTitle {
+  font-size: 0.94rem;
+  font-weight: 700;
+  color: #283245;
+  margin-bottom: 0.75rem;
+}
+
+.pendingSummarySubtle {
+  font-size: 0.8rem;
+  color: #687487;
+}
+
+.pendingSummarySingleCard {
+  border-radius: 20px;
+  padding: 1.1rem;
+  background:
+    radial-gradient(circle at top left, rgba(43, 138, 255, 0.1), transparent 34%),
+    linear-gradient(145deg, #ffffff, #f7fbff);
+  border: 1px solid rgba(0, 113, 227, 0.12);
+  box-shadow: 0 18px 40px rgba(18, 45, 84, 0.08);
+}
+
+.pendingSummaryTotalPill {
+  min-width: 210px;
+  border-radius: 16px;
+  padding: 0.7rem 0.9rem;
+  background: linear-gradient(145deg, #eef6ff, #ffffff);
+  border: 1px solid rgba(0, 113, 227, 0.14);
+}
+
+.pendingSummaryTotalLabel {
+  font-size: 0.76rem;
+  color: #64748a;
+}
+
+.pendingSummaryTotalValue {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.pendingMonthCard {
+  border-radius: 14px;
+  padding: 0.85rem 0.9rem;
+  background: linear-gradient(145deg, #fbfcff, #f7f9fd);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.pendingMonthTitle {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #273144;
+}
+
+.pendingMonthTotal {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #8d5a09;
+}
+
+.pendingMonthItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  border-radius: 12px;
+  padding: 0.55rem 0.7rem;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.pendingMonthItemLabel {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #243047;
+}
+
+.pendingMonthItemValue {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #9c6010;
+  white-space: nowrap;
+}
+
+.pendingAggregateRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  border-radius: 16px;
+  padding: 0.8rem 0.9rem;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(12, 48, 97, 0.08);
+}
+
+.pendingAggregateLabel {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #263044;
+}
+
+.pendingAggregateValue {
+  font-size: 0.84rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.remainingValueBlue {
+  color: #1b5db6;
+}
+
+.remainingValueYellow {
+  color: #ebaa03;
+}
+
+.remainingValueGreen {
+  color: #18794e;
 }
 
 .archiveSection {
@@ -180,6 +349,28 @@
   .archiveToolbar {
     justify-content: center;
     margin-bottom: 0.65rem;
+  }
+
+  .pendingSummarySingleCard {
+    padding: 0.85rem;
+    border-radius: 16px;
+  }
+
+  .pendingSummaryTotalPill {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .pendingAggregateRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3rem;
+    padding: 0.75rem 0.8rem;
+  }
+
+  .pendingAggregateLabel,
+  .pendingAggregateValue {
+    white-space: normal;
   }
 
   .tableCard {
