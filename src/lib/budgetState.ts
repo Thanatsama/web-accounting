@@ -30,6 +30,10 @@ export type BudgetRow = {
     planId: string;
     termMonths: number;
     startMonth: number;
+    originalPrice?: number;
+    discountedPrice?: number;
+    upfront?: number;
+    discountPercent?: number;
   };
 };
 

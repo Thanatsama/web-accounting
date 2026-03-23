@@ -47,6 +47,13 @@ function formatNumber(value: number): string {
   }).format(value);
 }
 
+function formatOptionalNumber(value: number | undefined): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return '-';
+  }
+  return `${formatNumber(value)} THB`;
+}
+
 function nowTimestamp(): number {
   return new Date().getTime();
 }
@@ -125,12 +132,15 @@ export default function PlanPage() {
     () =>
       map(items, (item) => {
         const discountValue = item.price * (item.discountPercent / 100);
+        const discountedPrice = Math.max(item.price - discountValue, 0);
         const net = Math.max(item.price - discountValue - item.upfront, 0);
         const monthlyPay = item.termMonths > 0 ? net / item.termMonths : net;
         return {
           ...item,
+          discountedPrice,
           monthlyPay,
           startRound: monthValueToRound(item.startMonthValue),
+          netInstallment: net,
         };
       }),
     [items],
@@ -158,6 +168,13 @@ export default function PlanPage() {
             startMonth: start,
             endMonth: end,
             status: row.status,
+            originalPrice: row.planMeta?.originalPrice,
+            discountedPrice:
+              row.planMeta?.discountedPrice ??
+              (typeof row.planMeta?.originalPrice === 'number' && typeof row.planMeta?.discountPercent === 'number'
+                ? Math.max(row.planMeta.originalPrice - row.planMeta.originalPrice * (row.planMeta.discountPercent / 100), 0)
+                : undefined),
+            upfront: row.planMeta?.upfront,
           };
         },
       ),
@@ -181,6 +198,13 @@ export default function PlanPage() {
             startMonth: start,
             endMonth: end,
             status: row.status,
+            originalPrice: row.planMeta?.originalPrice,
+            discountedPrice:
+              row.planMeta?.discountedPrice ??
+              (typeof row.planMeta?.originalPrice === 'number' && typeof row.planMeta?.discountPercent === 'number'
+                ? Math.max(row.planMeta.originalPrice - row.planMeta.originalPrice * (row.planMeta.discountPercent / 100), 0)
+                : undefined),
+            upfront: row.planMeta?.upfront,
           };
         },
       ),
@@ -232,6 +256,7 @@ export default function PlanPage() {
     if (!target) return;
 
     const discountValue = target.price * (target.discountPercent / 100);
+    const discountedPrice = Math.max(target.price - discountValue, 0);
     const net = Math.max(target.price - discountValue - target.upfront, 0);
     const monthlyPay = Number((net / target.termMonths).toFixed(2));
     const startMonth = monthValueToRound(target.startMonthValue);
@@ -251,6 +276,10 @@ export default function PlanPage() {
         planId: `plan-${target.id}`,
         termMonths,
         startMonth,
+        originalPrice: target.price,
+        discountedPrice,
+        upfront: target.upfront,
+        discountPercent: target.discountPercent,
       },
     };
 
@@ -495,6 +524,11 @@ export default function PlanPage() {
                     <Typography className={styles.rowMeta}>เริ่ม: {getRoundLabel(plan.startMonth)}</Typography>
                     <Typography className={styles.rowMeta}>สิ้นสุด: {getRoundLabel(plan.endMonth)}</Typography>
                     <Typography className={styles.rowMeta}>ระยะเวลาผ่อน: {plan.termMonths} เดือน</Typography>
+                    <Typography className={styles.rowMeta}>ราคาเต็ม: {formatOptionalNumber(plan.originalPrice)}</Typography>
+                    <Typography className={styles.rowMeta}>
+                      ราคาหลังหักส่วนลด: {formatOptionalNumber(plan.discountedPrice)}
+                    </Typography>
+                    <Typography className={styles.rowMeta}>จ่ายล่วงหน้า: {formatOptionalNumber(plan.upfront)}</Typography>
                     <Typography className={styles.rowMeta}>ค่างวด: {formatNumber(plan.monthlyPay)} THB</Typography>
                   </Box>
                   {!isMobileView && <Stack direction="row" spacing={1}>
@@ -554,6 +588,11 @@ export default function PlanPage() {
                   <Typography className={styles.rowMeta}>
                     สิ้นสุด: {getRoundLabel(item.startRound + item.termMonths - 1)}
                   </Typography>
+                  <Typography className={styles.rowMeta}>ราคาเต็ม: {formatOptionalNumber(item.price)}</Typography>
+                  <Typography className={styles.rowMeta}>
+                    ราคาหลังหักส่วนลด: {formatOptionalNumber(item.discountedPrice)}
+                  </Typography>
+                  <Typography className={styles.rowMeta}>จ่ายล่วงหน้า: {formatOptionalNumber(item.upfront)}</Typography>
                   <Typography className={styles.rowMeta}>ระยะเวลาผ่อน: {item.termMonths} เดือน</Typography>
                   <Typography className={styles.rowMeta}>ค่างวด: {formatNumber(item.monthlyPay)} THB</Typography>
                 </Box>
@@ -586,6 +625,11 @@ export default function PlanPage() {
                   <Typography className={styles.rowTitle}>{plan.detail}</Typography>
                   <Typography className={styles.rowMeta}>เริ่ม: {getRoundLabel(plan.startMonth)}</Typography>
                   <Typography className={styles.rowMeta}>สิ้นสุด: {getRoundLabel(plan.endMonth)}</Typography>
+                  <Typography className={styles.rowMeta}>ราคาเต็ม: {formatOptionalNumber(plan.originalPrice)}</Typography>
+                  <Typography className={styles.rowMeta}>
+                    ราคาหลังหักส่วนลด: {formatOptionalNumber(plan.discountedPrice)}
+                  </Typography>
+                  <Typography className={styles.rowMeta}>จ่ายล่วงหน้า: {formatOptionalNumber(plan.upfront)}</Typography>
                   <Typography className={styles.rowMeta}>ระยะเวลาผ่อน: {plan.termMonths} เดือน</Typography>
                   <Typography className={styles.rowMeta}>ค่างวด: {formatNumber(plan.monthlyPay)} THB</Typography>
                 </Box>
