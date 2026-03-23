@@ -54,6 +54,19 @@ function formatOptionalNumber(value: number | undefined): string {
   return `${formatNumber(value)} THB`;
 }
 
+function calculatePlanAmounts(price: number, discountPercent: number, upfront: number, termMonths: number) {
+  const discountValue = price * (discountPercent / 100);
+  const discountedPrice = Math.max(price - discountValue, 0);
+  const netInstallment = Math.max(discountedPrice - upfront, 0);
+  const monthlyPay = termMonths > 0 ? Number((netInstallment / termMonths).toFixed(2)) : netInstallment;
+
+  return {
+    discountedPrice,
+    netInstallment,
+    monthlyPay,
+  };
+}
+
 function nowTimestamp(): number {
   return new Date().getTime();
 }
@@ -102,7 +115,9 @@ export default function PlanPage() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingRowId, setEditingRowId] = useState<number | null>(null);
   const [editingName, setEditingName] = useState('');
-  const [editingMonthlyPay, setEditingMonthlyPay] = useState('0');
+  const [editingOriginalPrice, setEditingOriginalPrice] = useState('0');
+  const [editingDiscountPercent, setEditingDiscountPercent] = useState('0');
+  const [editingUpfront, setEditingUpfront] = useState('0');
   const [editingTerm, setEditingTerm] = useState<number>(3);
   const [editingStartMonth, setEditingStartMonth] = useState(getMonthInputValue());
   const [editingStatus, setEditingStatus] = useState<RowStatus>('PENDING');
@@ -131,16 +146,18 @@ export default function PlanPage() {
   const inactiveDraftPlans = useMemo(
     () =>
       map(items, (item) => {
-        const discountValue = item.price * (item.discountPercent / 100);
-        const discountedPrice = Math.max(item.price - discountValue, 0);
-        const net = Math.max(item.price - discountValue - item.upfront, 0);
-        const monthlyPay = item.termMonths > 0 ? net / item.termMonths : net;
+        const { discountedPrice, netInstallment, monthlyPay } = calculatePlanAmounts(
+          item.price,
+          item.discountPercent,
+          item.upfront,
+          item.termMonths,
+        );
         return {
           ...item,
           discountedPrice,
           monthlyPay,
           startRound: monthValueToRound(item.startMonthValue),
-          netInstallment: net,
+          netInstallment,
         };
       }),
     [items],
@@ -150,6 +167,35 @@ export default function PlanPage() {
     () => getCurrentRoundIndex(Math.max(snapshot.totalTables, 1), currentDate),
     [snapshot.totalTables, currentDate],
   );
+
+  const editingCalculatedPlan = useMemo(() => {
+    const price = Number(editingOriginalPrice);
+    const discountPercent = Number(editingDiscountPercent);
+    const upfront = Number(editingUpfront);
+    const term = Number(editingTerm);
+
+    if (
+      !Number.isFinite(price) ||
+      price < 0 ||
+      !Number.isFinite(discountPercent) ||
+      discountPercent < 0 ||
+      !Number.isFinite(upfront) ||
+      upfront < 0 ||
+      !Number.isFinite(term) ||
+      term < 1
+    ) {
+      return {
+        discountedPrice: 0,
+        monthlyPay: 0,
+      };
+    }
+
+    const { discountedPrice, monthlyPay } = calculatePlanAmounts(price, discountPercent, upfront, Math.floor(term));
+    return {
+      discountedPrice,
+      monthlyPay,
+    };
+  }, [editingDiscountPercent, editingOriginalPrice, editingTerm, editingUpfront]);
 
   const activePlans = useMemo(
     () =>
@@ -255,10 +301,12 @@ export default function PlanPage() {
     const target = items.find((item) => item.id === draftId);
     if (!target) return;
 
-    const discountValue = target.price * (target.discountPercent / 100);
-    const discountedPrice = Math.max(target.price - discountValue, 0);
-    const net = Math.max(target.price - discountValue - target.upfront, 0);
-    const monthlyPay = Number((net / target.termMonths).toFixed(2));
+    const { discountedPrice, monthlyPay } = calculatePlanAmounts(
+      target.price,
+      target.discountPercent,
+      target.upfront,
+      target.termMonths,
+    );
     const startMonth = monthValueToRound(target.startMonthValue);
     const termMonths = target.termMonths;
 
@@ -300,9 +348,14 @@ export default function PlanPage() {
     const target = snapshot.rows.find((row) => row.id === rowId && row.planMeta && !row.isCancelled);
     if (!target) return;
     const start = target.startMonth ?? target.planMeta?.startMonth ?? 1;
+    const originalPrice = target.planMeta?.originalPrice ?? 0;
+    const discountPercent = target.planMeta?.discountPercent ?? 0;
+    const upfront = target.planMeta?.upfront ?? 0;
     setEditingRowId(target.id);
     setEditingName(target.detail);
-    setEditingMonthlyPay(String(target.expense));
+    setEditingOriginalPrice(String(originalPrice));
+    setEditingDiscountPercent(String(discountPercent));
+    setEditingUpfront(String(upfront));
     setEditingTerm(Math.max(1, target.spreadMonths));
     setEditingStartMonth(roundToMonthValue(start));
     setEditingStatus(target.status);
@@ -313,7 +366,9 @@ export default function PlanPage() {
     setIsEditOpen(false);
     setEditingRowId(null);
     setEditingName('');
-    setEditingMonthlyPay('0');
+    setEditingOriginalPrice('0');
+    setEditingDiscountPercent('0');
+    setEditingUpfront('0');
     setEditingTerm(3);
     setEditingStartMonth(currentMonthValue);
     setEditingStatus('PENDING');
@@ -322,23 +377,33 @@ export default function PlanPage() {
   const saveEditedPlan = async () => {
     if (editingRowId === null) return;
 
-    const nextMonthlyPay = Number(editingMonthlyPay);
     const nextTerm = Number(editingTerm);
+    const nextOriginalPrice = Number(editingOriginalPrice);
+    const nextDiscountPercent = Number(editingDiscountPercent);
+    const nextUpfront = Number(editingUpfront);
     const trimmedName = editingName.trim();
     const nextStartRound = monthValueToRound(editingStartMonth);
     if (!trimmedName) return;
-    if (!Number.isFinite(nextMonthlyPay) || nextMonthlyPay < 0) return;
     if (!Number.isFinite(nextTerm) || nextTerm < 1) return;
+    if (!Number.isFinite(nextOriginalPrice) || nextOriginalPrice < 0) return;
+    if (!Number.isFinite(nextDiscountPercent) || nextDiscountPercent < 0) return;
+    if (!Number.isFinite(nextUpfront) || nextUpfront < 0) return;
 
     const normalizedTerm = Math.floor(nextTerm);
+    const { discountedPrice, monthlyPay } = calculatePlanAmounts(
+      nextOriginalPrice,
+      nextDiscountPercent,
+      nextUpfront,
+      normalizedTerm,
+    );
     const updatedRows = map(snapshot.rows, (row) => {
       if (row.id !== editingRowId) return row;
       if (!row.planMeta) return row;
       return {
         ...row,
         detail: trimmedName,
-        expense: nextMonthlyPay,
-        expenseByMonth: buildExpenseByMonth(nextStartRound, normalizedTerm, nextMonthlyPay),
+        expense: monthlyPay,
+        expenseByMonth: buildExpenseByMonth(nextStartRound, normalizedTerm, monthlyPay),
         startMonth: nextStartRound,
         spreadMonths: normalizedTerm,
         status: editingStatus,
@@ -346,6 +411,10 @@ export default function PlanPage() {
           ...row.planMeta,
           startMonth: nextStartRound,
           termMonths: normalizedTerm,
+          originalPrice: nextOriginalPrice,
+          discountedPrice,
+          upfront: nextUpfront,
+          discountPercent: nextDiscountPercent,
         },
       };
     });
@@ -755,14 +824,51 @@ export default function PlanPage() {
               onChange={(event) => setEditingName(event.target.value)}
               fullWidth
             />
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.2}>
+              <TextField
+                size="small"
+                label="ราคาเต็ม (THB)"
+                type="number"
+                value={editingOriginalPrice}
+                onChange={(event) => setEditingOriginalPrice(event.target.value)}
+                fullWidth
+                slotProps={{ htmlInput: { min: 0, step: '0.01' } }}
+              />
+              <TextField
+                size="small"
+                label="ส่วนลด (%)"
+                type="number"
+                value={editingDiscountPercent}
+                fullWidth
+                slotProps={{ htmlInput: { readOnly: true } }}
+              />
+            </Stack>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.2}>
+              <TextField
+                size="small"
+                label="ราคาหลังหักส่วนลด (THB)"
+                type="number"
+                value={editingCalculatedPlan.discountedPrice}
+                fullWidth
+                slotProps={{ htmlInput: { readOnly: true } }}
+              />
+              <TextField
+                size="small"
+                label="จ่ายล่วงหน้า (THB)"
+                type="number"
+                value={editingUpfront}
+                onChange={(event) => setEditingUpfront(event.target.value)}
+                fullWidth
+                slotProps={{ htmlInput: { min: 0, step: '0.01' } }}
+              />
+            </Stack>
             <TextField
               size="small"
               label="ค่างวดต่อเดือน (THB)"
               type="number"
-              value={editingMonthlyPay}
-              onChange={(event) => setEditingMonthlyPay(event.target.value)}
+              value={editingCalculatedPlan.monthlyPay}
               fullWidth
-              slotProps={{ htmlInput: { min: 0, step: '0.01' } }}
+              slotProps={{ htmlInput: { readOnly: true } }}
             />
             <TextField
               size="small"
