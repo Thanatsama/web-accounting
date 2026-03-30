@@ -25,6 +25,7 @@ import { readBudgetFromServer, writeBudgetToServer } from '@/lib/budgetApi';
 import { getCurrentRoundIndex, getRoundLabel } from '@/lib/budgetCalendar';
 import { BudgetRow, CardType, RowStatus } from '@/lib/budgetState';
 import { CARD_TYPE_SELECT_OPTIONS, CardTypeInput } from '@/lib/cardBrand';
+import { ensureUniqueDetail, getDetailKey } from '@/lib/detailName';
 import { readBudgetSnapshot, updateBudgetSnapshot, writeBudgetSnapshot } from '@/lib/indexedDbBudget';
 import { useEffectiveCurrentDate } from '@/lib/testingDate';
 import DesktopRowsTable from '@/components/table/DesktopRowsTable';
@@ -186,6 +187,45 @@ function buildDisplayRows(rows: BudgetRow[], tableIndex: number): DisplayRow[] {
   }));
 }
 
+function propagateCardTypeToMatchingRows(
+  rows: BudgetRow[],
+  targetRowId: number,
+  targetDetail: string,
+  tableIndex: number,
+  nextCardType: CardType | undefined,
+): BudgetRow[] {
+  if (!nextCardType) return rows;
+
+  const targetDetailKey = getDetailKey(targetDetail);
+  if (!targetDetailKey) return rows;
+
+  return map(rows, (row) => {
+    if (row.id === targetRowId) return row;
+    if (getDetailKey(row.detail) !== targetDetailKey) return row;
+
+    if (!row.cardType) {
+      const nextCardTypeByMonth = { ...(row.cardTypeByMonth ?? {}) };
+      delete nextCardTypeByMonth[String(tableIndex)];
+      return {
+        ...row,
+        cardType: nextCardType,
+        cardTypeByMonth: Object.keys(nextCardTypeByMonth).length > 0 ? nextCardTypeByMonth : undefined,
+      };
+    }
+
+    if (resolveCardTypeByMonth(row, tableIndex)) return row;
+
+    const monthKey = String(tableIndex);
+    return {
+      ...row,
+      cardTypeByMonth: {
+        ...(row.cardTypeByMonth ?? {}),
+        [monthKey]: nextCardType,
+      },
+    };
+  });
+}
+
 export default function TablePage() {
   const theme = useTheme();
   const isMobileView = useMediaQuery(theme.breakpoints.down('sm'));
@@ -200,6 +240,7 @@ export default function TablePage() {
   const [isMonthIncomeOpen, setIsMonthIncomeOpen] = useState(false);
   const [showArchive, setShowArchive] = useState(false);
   const [showPendingSummary, setShowPendingSummary] = useState(false);
+  const [deleteRowTarget, setDeleteRowTarget] = useState<{ id: number; detail: string } | null>(null);
   const [editingRowId, setEditingRowId] = useState<number | null>(null);
   const [editingTableIndex, setEditingTableIndex] = useState<number>(1);
   const [editingCanCancel, setEditingCanCancel] = useState(false);
@@ -329,10 +370,15 @@ export default function TablePage() {
 
       const normalizedSpread = Math.floor(spreadNumber);
       const trimmedDetail = detail.trim();
+      const nextDetail = ensureUniqueDetail(
+        trimmedDetail,
+        rows.map((row) => row.detail),
+        `รายการ ${rows.length + 1}`,
+      );
 
       const newRow: BudgetRow = {
         id: nowTimestamp(),
-        detail: trimmedDetail || `รายการ ${rows.length + 1}`,
+        detail: nextDetail,
         expense: expenseNumber,
         expenseByMonth: buildDefaultExpenseByMonth(normalizedSpread, expenseNumber, 1),
         startMonth: 1,
@@ -406,7 +452,12 @@ export default function TablePage() {
           nextDefaultCardType = monthPatch.cardType || undefined;
           delete nextCardTypeByMonth[monthKey];
         } else if (monthPatch.cardType) {
-          nextCardTypeByMonth[monthKey] = monthPatch.cardType;
+          if (!row.cardType) {
+            nextDefaultCardType = monthPatch.cardType;
+            delete nextCardTypeByMonth[monthKey];
+          } else {
+            nextCardTypeByMonth[monthKey] = monthPatch.cardType;
+          }
         } else {
           delete nextCardTypeByMonth[monthKey];
         }
@@ -434,13 +485,24 @@ export default function TablePage() {
           },
         };
       });
-      const inferredTotalTables = nextRows.reduce((maxMonth, row) => Math.max(maxMonth, getRowEndMonth(row)), 1);
+      const targetRow = nextRows.find((row) => row.id === rowId);
+      const propagatedRows =
+        targetRow && monthPatch
+          ? propagateCardTypeToMatchingRows(
+              nextRows,
+              rowId,
+              targetRow.detail,
+              monthPatch.tableIndex,
+              monthPatch.cardType || undefined,
+            )
+          : nextRows;
+      const inferredTotalTables = propagatedRows.reduce((maxMonth, row) => Math.max(maxMonth, getRowEndMonth(row)), 1);
       const nextTotalTables = Math.max(totalTables, inferredTotalTables);
       if (nextTotalTables !== totalTables) {
         setTotalTables(nextTotalTables);
       }
-      saveRowsNow(nextRows, nextTotalTables, updatedAt);
-      return nextRows;
+      saveRowsNow(propagatedRows, nextTotalTables, updatedAt);
+      return propagatedRows;
     });
   };
 
@@ -482,10 +544,20 @@ export default function TablePage() {
     if (!Number.isFinite(nextExpense) || nextExpense < 0) return;
     if (!Number.isFinite(nextCompensation) || nextCompensation < 0) return;
 
+    const currentRow = rows.find((row) => row.id === editingRowId);
+    if (!currentRow) return;
+
+    const nextDetail = ensureUniqueDetail(
+      editDetail,
+      rows.map((row) => row.detail),
+      currentRow.detail || `รายการ ${editingRowId}`,
+      [currentRow.detail],
+    );
+
     updateRowField(
       editingRowId,
       {
-        detail: editDetail,
+        detail: nextDetail,
         cardType: editCardType || undefined,
       },
       {
@@ -503,6 +575,35 @@ export default function TablePage() {
   const handleCancelPlanRow = () => {
     if (editingRowId === null) return;
     updateRowField(editingRowId, { isCancelled: true });
+    closeEditDialog();
+  };
+
+  const openDeleteRowDialog = () => {
+    if (editingRowId === null) return;
+    const target = rows.find((row) => row.id === editingRowId);
+    if (!target) return;
+    setDeleteRowTarget({
+      id: target.id,
+      detail: target.detail || `รายการ ${target.id}`,
+    });
+  };
+
+  const closeDeleteRowDialog = () => {
+    setDeleteRowTarget(null);
+  };
+
+  const confirmDeleteRow = () => {
+    if (!deleteRowTarget) return;
+
+    const updatedAt = nowTimestamp();
+    const nextRows = rows.filter((row) => row.id !== deleteRowTarget.id);
+    const inferredTotalTables = nextRows.reduce((maxMonth, row) => Math.max(maxMonth, getRowEndMonth(row)), 1);
+    const nextTotalTables = Math.max(1, inferredTotalTables);
+
+    setRows(nextRows);
+    setTotalTables(nextTotalTables);
+    saveRowsNow(nextRows, nextTotalTables, updatedAt);
+    closeDeleteRowDialog();
     closeEditDialog();
   };
 
@@ -1149,6 +1250,9 @@ export default function TablePage() {
             </Stack>
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2.4, pt: 1.5, gap: 1 }}>
+            <Button color="error" variant="outlined" onClick={openDeleteRowDialog} sx={{ borderRadius: 999, px: 1.8 }}>
+              ลบรายการ
+            </Button>
             {editingCanCancel && (
               <Button color="error" onClick={handleCancelPlanRow} sx={{ borderRadius: 999, px: 1.8 }}>
                 ยกเลิกรายการจากแผน
@@ -1159,6 +1263,39 @@ export default function TablePage() {
             </Button>
             <Button onClick={handleSaveEdit} variant="contained" sx={{ borderRadius: 999, px: 2 }}>
               บันทึกรายการ
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog
+          open={Boolean(deleteRowTarget)}
+          onClose={closeDeleteRowDialog}
+          fullWidth
+          maxWidth="xs"
+          slotProps={{
+            paper: {
+              sx: {
+                borderRadius: 2,
+                background: 'linear-gradient(180deg, #ffffff, #fff8f7)',
+                border: '1px solid rgba(198,40,40,0.14)',
+              },
+            },
+          }}
+        >
+          <DialogTitle sx={{ pb: 0.5 }}>
+            <Typography component="div" variant="h6" sx={{ fontWeight: 700 }}>
+              ยืนยันการลบรายการ
+            </Typography>
+          </DialogTitle>
+          <DialogContent sx={{ pt: '8px !important' }}>
+            <Typography sx={{ color: 'text.secondary' }}>
+              รายการ <strong>{deleteRowTarget?.detail}</strong> จะถูกลบออกจากทุกเดือนของรายการนี้ทันที
+            </Typography>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2.2, pt: 1, gap: 0.8 }}>
+            <Button onClick={closeDeleteRowDialog}>ยกเลิก</Button>
+            <Button color="error" variant="contained" onClick={confirmDeleteRow}>
+              ลบรายการ
             </Button>
           </DialogActions>
         </Dialog>

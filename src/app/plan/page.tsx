@@ -23,6 +23,7 @@ import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import { readBudgetFromServer, writeBudgetToServer } from '@/lib/budgetApi';
 import { getCurrentRoundIndex, getMonthInputValue, getRoundIndexFromDate, getRoundLabel } from '@/lib/budgetCalendar';
 import { BudgetSnapshot, BudgetRow, DEFAULT_BUDGET_SNAPSHOT, RowStatus } from '@/lib/budgetState';
+import { ensureUniqueDetail } from '@/lib/detailName';
 import { readBudgetSnapshot, writeBudgetSnapshot } from '@/lib/indexedDbBudget';
 import { useEffectiveCurrentDate } from '@/lib/testingDate';
 import styles from './page.module.css';
@@ -282,11 +283,17 @@ export default function PlanPage() {
     if (!Number.isFinite(discount) || discount < 0) return;
     if (!Number.isFinite(upfront) || upfront < 0) return;
 
+    const nextName = ensureUniqueDetail(
+      trimmedName,
+      [...snapshot.rows.map((row) => row.detail), ...items.map((item) => item.name)],
+      `แผน ${items.length + 1}`,
+    );
+
     setItems((prev) => [
       ...prev,
       {
         id: nowTimestamp(),
-        name: trimmedName,
+        name: nextName,
         price,
         discountPercent: discount,
         upfront,
@@ -309,10 +316,15 @@ export default function PlanPage() {
     );
     const startMonth = monthValueToRound(target.startMonthValue);
     const termMonths = target.termMonths;
+    const planDetail = ensureUniqueDetail(
+      `${target.name} (${termMonths} เดือน)`,
+      snapshot.rows.map((row) => row.detail),
+      target.name,
+    );
 
     const planRow: BudgetRow = {
       id: nowTimestamp() + target.id,
-      detail: `${target.name} (${termMonths} เดือน)`,
+      detail: planDetail,
       expense: monthlyPay,
       expenseByMonth: buildExpenseByMonth(startMonth, termMonths, monthlyPay),
       startMonth,
@@ -390,6 +402,14 @@ export default function PlanPage() {
     if (!Number.isFinite(nextUpfront) || nextUpfront < 0) return;
 
     const normalizedTerm = Math.floor(nextTerm);
+    const currentRow = snapshot.rows.find((row) => row.id === editingRowId);
+    if (!currentRow) return;
+    const nextDetail = ensureUniqueDetail(
+      trimmedName,
+      snapshot.rows.map((row) => row.detail),
+      currentRow.detail || `แผน ${editingRowId}`,
+      [currentRow.detail],
+    );
     const { discountedPrice, monthlyPay } = calculatePlanAmounts(
       nextOriginalPrice,
       nextDiscountPercent,
@@ -401,7 +421,7 @@ export default function PlanPage() {
       if (!row.planMeta) return row;
       return {
         ...row,
-        detail: trimmedName,
+        detail: nextDetail,
         expense: monthlyPay,
         expenseByMonth: buildExpenseByMonth(nextStartRound, normalizedTerm, monthlyPay),
         startMonth: nextStartRound,
