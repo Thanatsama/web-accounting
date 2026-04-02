@@ -22,7 +22,7 @@ import {
 } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import { readBudgetFromServer, writeBudgetToServer } from '@/lib/budgetApi';
-import { getCurrentRoundIndex, getRoundLabel } from '@/lib/budgetCalendar';
+import { getCurrentRoundIndex, getMonthInputValue, getRoundIndexFromDate, getRoundLabel } from '@/lib/budgetCalendar';
 import { BudgetRow, CardType, RowStatus } from '@/lib/budgetState';
 import { CARD_TYPE_SELECT_OPTIONS, CardTypeInput } from '@/lib/cardBrand';
 import { ensureUniqueDetail, getDetailKey } from '@/lib/detailName';
@@ -187,6 +187,14 @@ function buildDisplayRows(rows: BudgetRow[], tableIndex: number): DisplayRow[] {
   }));
 }
 
+function monthValueToRound(monthValue: string): number {
+  const [yearRaw, monthRaw] = monthValue.split('-');
+  const year = Number(yearRaw);
+  const month = Number(monthRaw);
+  if (!Number.isFinite(year) || !Number.isFinite(month)) return 1;
+  return getRoundIndexFromDate(new Date(year, month - 1, 1));
+}
+
 function propagateCardTypeToMatchingRows(
   rows: BudgetRow[],
   targetRowId: number,
@@ -250,6 +258,7 @@ export default function TablePage() {
   const [detail, setDetail] = useState('');
   const [expense, setExpense] = useState('0');
   const [spreadMonths, setSpreadMonths] = useState('1');
+  const [itemStartMonth, setItemStartMonth] = useState(getMonthInputValue());
   const [compensation, setCompensation] = useState('0');
   const [source, setSource] = useState('');
   const [cardType, setCardType] = useState<CardTypeInput>('');
@@ -272,6 +281,8 @@ export default function TablePage() {
 
   const tableIndexes = useMemo(() => createTableIndexes(totalTables), [totalTables]);
   const currentRoundIndex = useMemo(() => getCurrentRoundIndex(totalTables, currentDate), [totalTables, currentDate]);
+  const currentMonthValue = useMemo(() => getMonthInputValue(currentDate), [currentDate]);
+  const selectedStartRound = useMemo(() => monthValueToRound(itemStartMonth), [itemStartMonth]);
   const activeTableIndexes = useMemo(
     () => tableIndexes.filter((index) => index >= currentRoundIndex),
     [tableIndexes, currentRoundIndex],
@@ -344,13 +355,17 @@ export default function TablePage() {
     };
   }, []);
 
-  const openAddDialog = () => setIsAddOpen(true);
+  const openAddDialog = () => {
+    setItemStartMonth(currentMonthValue);
+    setIsAddOpen(true);
+  };
 
   const closeAddDialog = () => {
     setIsAddOpen(false);
     setDetail('');
     setExpense('0');
     setSpreadMonths('1');
+    setItemStartMonth(currentMonthValue);
     setCompensation('0');
     setSource('');
     setCardType('');
@@ -363,10 +378,12 @@ export default function TablePage() {
       const expenseNumber = Number(expense);
       const spreadNumber = Number(spreadMonths);
       const compensationNumber = Number(compensation);
+      const startMonth = monthValueToRound(itemStartMonth);
 
       if (!Number.isFinite(expenseNumber) || expenseNumber < 0) return;
       if (!Number.isFinite(spreadNumber) || spreadNumber < 1) return;
       if (!Number.isFinite(compensationNumber) || compensationNumber < 0) return;
+      if (!Number.isFinite(startMonth) || startMonth < currentRoundIndex) return;
 
       const normalizedSpread = Math.floor(spreadNumber);
       const trimmedDetail = detail.trim();
@@ -380,8 +397,8 @@ export default function TablePage() {
         id: nowTimestamp(),
         detail: nextDetail,
         expense: expenseNumber,
-        expenseByMonth: buildDefaultExpenseByMonth(normalizedSpread, expenseNumber, 1),
-        startMonth: 1,
+        expenseByMonth: buildDefaultExpenseByMonth(normalizedSpread, expenseNumber, startMonth),
+        startMonth,
         spreadMonths: normalizedSpread,
         compensation: compensationNumber,
         source: source.trim(),
@@ -1084,11 +1101,22 @@ export default function TablePage() {
                 <TextField
                   size="small"
                   fullWidth
+                  label="เดือนเริ่ม"
+                  type="month"
+                  value={itemStartMonth}
+                  onChange={(event) => setItemStartMonth(event.target.value)}
+                  helperText={`รายการนี้จะเริ่มที่ ${getRoundLabel(selectedStartRound)}`}
+                  slotProps={{ htmlInput: { min: currentMonthValue } }}
+                  sx={formFieldSx}
+                />
+                <TextField
+                  size="small"
+                  fullWidth
                   label="จำนวนเดือน"
                   type="number"
                   value={spreadMonths}
                   onChange={(event) => setSpreadMonths(event.target.value)}
-                  helperText={`ถ้าเดือนมากกว่า ${totalTables} ระบบจะเพิ่มจำนวนเดือนทั้งหมดให้อัตโนมัติ`}
+                  helperText={`เริ่มที่ ${getRoundLabel(selectedStartRound)} และถ้ารวมเกิน ${totalTables} เดือน ระบบจะเพิ่มจำนวนเดือนทั้งหมดให้อัตโนมัติ`}
                   slotProps={{ htmlInput: { min: 1 } }}
                   sx={formFieldSx}
                 />

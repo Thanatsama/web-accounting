@@ -38,7 +38,7 @@ type PlanItem = {
   termMonths: number;
 };
 
-const TERM_OPTIONS = [3, 6, 10, 12, 18, 24];
+const TERM_OPTIONS = [1, 3, 6, 10, 12, 18, 24];
 const STATUS_OPTIONS: RowStatus[] = ['PENDING', 'PAID'];
 
 function formatNumber(value: number): string {
@@ -110,7 +110,7 @@ export default function PlanPage() {
   const [itemDiscount, setItemDiscount] = useState('0');
   const [itemUpfront, setItemUpfront] = useState('0');
   const [itemStartMonth, setItemStartMonth] = useState(getMonthInputValue());
-  const [itemTermMonths, setItemTermMonths] = useState<number>(3);
+  const [itemTermMonths, setItemTermMonths] = useState<number>(1);
   const [items, setItems] = useState<PlanItem[]>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -119,7 +119,7 @@ export default function PlanPage() {
   const [editingOriginalPrice, setEditingOriginalPrice] = useState('0');
   const [editingDiscountPercent, setEditingDiscountPercent] = useState('0');
   const [editingUpfront, setEditingUpfront] = useState('0');
-  const [editingTerm, setEditingTerm] = useState<number>(3);
+  const [editingTerm, setEditingTerm] = useState<number>(1);
   const [editingStartMonth, setEditingStartMonth] = useState(getMonthInputValue());
   const [editingStatus, setEditingStatus] = useState<RowStatus>('PENDING');
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'draft' | 'row'; id: number } | null>(null);
@@ -264,7 +264,7 @@ export default function PlanPage() {
     setItemDiscount('0');
     setItemUpfront('0');
     setItemStartMonth(currentMonthValue);
-    setItemTermMonths(3);
+    setItemTermMonths(1);
   };
 
   const closeAddDialog = () => {
@@ -381,7 +381,7 @@ export default function PlanPage() {
     setEditingOriginalPrice('0');
     setEditingDiscountPercent('0');
     setEditingUpfront('0');
-    setEditingTerm(3);
+    setEditingTerm(1);
     setEditingStartMonth(currentMonthValue);
     setEditingStatus('PENDING');
   };
