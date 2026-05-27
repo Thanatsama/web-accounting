@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import AppRouterStyleCacheProvider from "@/components/providers/AppRouterStyleCacheProvider";
 import AppThemeProvider from "@/components/providers/AppThemeProvider";
 import "@fontsource/inter/400.css";
 import "@fontsource/inter/500.css";
@@ -25,7 +26,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <AppThemeProvider>{children}</AppThemeProvider>
+        <AppRouterStyleCacheProvider options={{ key: "css" }}>
+          <AppThemeProvider>{children}</AppThemeProvider>
+        </AppRouterStyleCacheProvider>
       </body>
     </html>
   );

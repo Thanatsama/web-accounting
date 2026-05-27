@@ -21,7 +21,6 @@ import {
   useTheme,
 } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import { readBudgetFromServer, writeBudgetToServer } from '@/lib/budgetApi';
 import { getCurrentRoundIndex, getMonthInputValue, getRoundIndexFromDate, getRoundLabel } from '@/lib/budgetCalendar';
 import { BudgetRow, CardType, RowStatus } from '@/lib/budgetState';
 import { CARD_TYPE_SELECT_OPTIONS, CardTypeInput } from '@/lib/cardBrand';
@@ -236,7 +235,7 @@ function propagateCardTypeToMatchingRows(
 
 export default function TablePage() {
   const theme = useTheme();
-  const isMobileView = useMediaQuery(theme.breakpoints.down('sm'));
+  const isMobileView = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
   const [totalTables, setTotalTables] = useState(1);
   const [openingBalance, setOpeningBalance] = useState(0);
   const [accountBalanceByMonth, setAccountBalanceByMonth] = useState<Record<string, number>>({});
@@ -296,13 +295,7 @@ export default function TablePage() {
     let mounted = true;
 
     const hydrate = async () => {
-      const local = await readBudgetSnapshot();
-      let nextSnapshot = local;
-      const fromServer = await readBudgetFromServer();
-      if (fromServer && fromServer.updatedAt > local.updatedAt) {
-        nextSnapshot = fromServer;
-        await writeBudgetSnapshot(fromServer);
-      }
+      const nextSnapshot = await readBudgetSnapshot();
 
       if (!mounted) return;
       setRows(nextSnapshot.rows);
@@ -353,7 +346,7 @@ export default function TablePage() {
       mounted = false;
       window.removeEventListener('account-balance-updated', onAccountBalanceUpdate);
     };
-  }, []);
+  }, [currentRoundIndex]);
 
   const openAddDialog = () => {
     setItemStartMonth(currentMonthValue);
@@ -423,7 +416,6 @@ export default function TablePage() {
       setAccountBalanceByMonth(nextSnapshot.accountBalanceByMonth ?? {});
       setMonthlyIncome(nextSnapshot.monthlyIncome);
       setMonthlyIncomeByMonth(nextSnapshot.monthlyIncomeByMonth ?? {});
-      void writeBudgetToServer(nextSnapshot);
       closeAddDialog();
     })();
   };
@@ -439,7 +431,6 @@ export default function TablePage() {
       updatedAt,
     };
     void writeBudgetSnapshot(snapshot);
-    void writeBudgetToServer(snapshot);
   };
 
   const updateRowField = (
@@ -660,7 +651,6 @@ export default function TablePage() {
       setAccountBalanceByMonth(nextSnapshot.accountBalanceByMonth ?? {});
       setMonthlyIncome(nextSnapshot.monthlyIncome);
       setMonthlyIncomeByMonth(nextSnapshot.monthlyIncomeByMonth ?? {});
-      void writeBudgetToServer(nextSnapshot);
       closeMonthIncomeDialog();
     })();
   };
@@ -684,7 +674,6 @@ export default function TablePage() {
       setAccountBalanceByMonth(nextSnapshot.accountBalanceByMonth ?? {});
       setMonthlyIncome(nextSnapshot.monthlyIncome);
       setMonthlyIncomeByMonth(nextSnapshot.monthlyIncomeByMonth ?? {});
-      void writeBudgetToServer(nextSnapshot);
       closeMonthIncomeDialog();
     })();
   };

@@ -40,7 +40,7 @@ export function setTestMonthValue(monthValue: string | null): void {
 }
 
 export function useEffectiveCurrentDate(): Date {
-  const [date, setDate] = useState<Date>(() => getEffectiveCurrentDate());
+  const [date, setDate] = useState<Date>(() => new Date());
 
   useEffect(() => {
     const syncDate = () => setDate(getEffectiveCurrentDate());

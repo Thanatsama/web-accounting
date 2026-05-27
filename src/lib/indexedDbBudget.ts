@@ -1,6 +1,5 @@
+import { readBudgetFromServer, writeBudgetToServer } from "@/lib/budgetApi";
 import { BudgetSnapshot, DEFAULT_BUDGET_SNAPSHOT } from "@/lib/budgetState";
-
-const API_PATH = "/api/budget";
 
 function asNumber(value: unknown, fallback: number): number {
   const parsed = Number(value);
@@ -45,9 +44,8 @@ function normalizeSnapshot(value: unknown): BudgetSnapshot {
 
 export async function readBudgetSnapshot(): Promise<BudgetSnapshot> {
   try {
-    const response = await fetch(API_PATH, { cache: "no-store" });
-    if (!response.ok) return DEFAULT_BUDGET_SNAPSHOT;
-    const payload = (await response.json()) as unknown;
+    const payload = await readBudgetFromServer();
+    if (!payload) return DEFAULT_BUDGET_SNAPSHOT;
     return normalizeSnapshot(payload);
   } catch (error) {
     console.error("Failed to read budget snapshot from server:", error);
@@ -58,14 +56,7 @@ export async function readBudgetSnapshot(): Promise<BudgetSnapshot> {
 export async function writeBudgetSnapshot(snapshot: BudgetSnapshot): Promise<void> {
   try {
     const nextSnapshot = normalizeSnapshot(snapshot);
-    const response = await fetch(API_PATH, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(nextSnapshot),
-    });
-    if (!response.ok) {
-      throw new Error(`Write failed: ${response.status}`);
-    }
+    await writeBudgetToServer(nextSnapshot);
   } catch (error) {
     console.error("Failed to write budget snapshot to server:", error);
     throw error;

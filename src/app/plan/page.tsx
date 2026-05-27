@@ -20,7 +20,6 @@ import {
 import MarketingLayout from '@/components/layout/MarketingLayout';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
-import { readBudgetFromServer, writeBudgetToServer } from '@/lib/budgetApi';
 import { getCurrentRoundIndex, getMonthInputValue, getRoundIndexFromDate, getRoundLabel } from '@/lib/budgetCalendar';
 import { BudgetSnapshot, BudgetRow, DEFAULT_BUDGET_SNAPSHOT, RowStatus } from '@/lib/budgetState';
 import { ensureUniqueDetail } from '@/lib/detailName';
@@ -101,7 +100,7 @@ function getRowEndMonth(row: BudgetRow): number {
 
 export default function PlanPage() {
   const theme = useTheme();
-  const isMobileView = useMediaQuery(theme.breakpoints.down('sm'));
+  const isMobileView = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
   const currentDate = useEffectiveCurrentDate();
   const currentMonthValue = useMemo(() => getMonthInputValue(currentDate), [currentDate]);
   const [snapshot, setSnapshot] = useState<BudgetSnapshot>(DEFAULT_BUDGET_SNAPSHOT);
@@ -128,13 +127,7 @@ export default function PlanPage() {
   useEffect(() => {
     let mounted = true;
     const hydrate = async () => {
-      const local = await readBudgetSnapshot();
-      let next = local;
-      const fromServer = await readBudgetFromServer();
-      if (fromServer && fromServer.updatedAt > local.updatedAt) {
-        next = fromServer;
-        await writeBudgetSnapshot(fromServer);
-      }
+      const next = await readBudgetSnapshot();
       if (!mounted) return;
       setSnapshot(next);
     };
@@ -351,7 +344,6 @@ export default function PlanPage() {
     };
 
     await writeBudgetSnapshot(nextSnapshot);
-    void writeBudgetToServer(nextSnapshot);
     setSnapshot(nextSnapshot);
     setItems((prev) => prev.filter((item) => item.id !== draftId));
   };
@@ -451,7 +443,6 @@ export default function PlanPage() {
       updatedAt: nowTimestamp(),
     };
     await writeBudgetSnapshot(nextSnapshot);
-    void writeBudgetToServer(nextSnapshot);
     setSnapshot(nextSnapshot);
     closeEditPlanDialog();
   };
@@ -471,7 +462,6 @@ export default function PlanPage() {
       updatedAt: nowTimestamp(),
     };
     await writeBudgetSnapshot(nextSnapshot);
-    void writeBudgetToServer(nextSnapshot);
     setSnapshot(nextSnapshot);
   };
 
@@ -491,7 +481,6 @@ export default function PlanPage() {
       updatedAt: nowTimestamp(),
     };
     await writeBudgetSnapshot(nextSnapshot);
-    void writeBudgetToServer(nextSnapshot);
     setSnapshot(nextSnapshot);
   };
 
@@ -524,7 +513,6 @@ export default function PlanPage() {
       updatedAt: nowTimestamp(),
     };
     await writeBudgetSnapshot(nextSnapshot);
-    void writeBudgetToServer(nextSnapshot);
     setSnapshot(nextSnapshot);
   };
 
@@ -551,7 +539,6 @@ export default function PlanPage() {
       updatedAt: nowTimestamp(),
     };
     await writeBudgetSnapshot(nextSnapshot);
-    void writeBudgetToServer(nextSnapshot);
     setSnapshot(nextSnapshot);
     closeDeletePlanDialog();
   };

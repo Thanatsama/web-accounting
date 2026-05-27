@@ -16,10 +16,6 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
-import {
-  readBudgetFromServer,
-  writeBudgetToServer,
-} from "@/lib/budgetApi";
 import { getCurrentRoundIndex, getMonthInputValue } from "@/lib/budgetCalendar";
 import {
   BudgetRow,
@@ -146,7 +142,7 @@ function buildDisplayRows(rows: BudgetRow[], tableIndex: number): Array<{ expens
 
 export default function AccountBalanceMenu() {
   const theme = useTheme();
-  const isMobileView = useMediaQuery(theme.breakpoints.down("sm"));
+  const isMobileView = useMediaQuery(theme.breakpoints.down("sm"), { noSsr: true });
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [snapshot, setSnapshot] = useState<BudgetSnapshot>(DEFAULT_BUDGET_SNAPSHOT);
   const [isEditing, setIsEditing] = useState(false);
@@ -214,14 +210,7 @@ export default function AccountBalanceMenu() {
     let mounted = true;
 
     const hydrate = async () => {
-      const local = await readBudgetSnapshot();
-      let nextSnapshot = local;
-      const fromServer = await readBudgetFromServer();
-
-      if (fromServer && fromServer.updatedAt > local.updatedAt) {
-        nextSnapshot = fromServer;
-        await writeBudgetSnapshot(fromServer);
-      }
+      const nextSnapshot = await readBudgetSnapshot();
 
       if (!mounted) return;
       setSnapshot(nextSnapshot);
@@ -276,7 +265,6 @@ export default function AccountBalanceMenu() {
       });
 
       setSnapshot(nextSnapshot);
-      void writeBudgetToServer(nextSnapshot);
       window.dispatchEvent(
         new CustomEvent("account-balance-updated", {
           detail: { snapshot: nextSnapshot },
@@ -313,7 +301,6 @@ export default function AccountBalanceMenu() {
             updatedAt: Date.now(),
           };
           await writeBudgetSnapshot(nextSnapshot);
-          void writeBudgetToServer(nextSnapshot);
           setSnapshot(nextSnapshot);
           setRestoreError("");
           window.dispatchEvent(

@@ -5,11 +5,10 @@ import Image from 'next/image';
 import map from 'lodash/map';
 import { Box, Chip, Container, Stack, Typography } from '@mui/material';
 import MarketingLayout from '@/components/layout/MarketingLayout';
-import { readBudgetFromServer } from '@/lib/budgetApi';
 import { getCurrentRoundIndex, getRoundLabel } from '@/lib/budgetCalendar';
 import { BudgetRow, BudgetSnapshot, CardType, DEFAULT_BUDGET_SNAPSHOT } from '@/lib/budgetState';
 import { getCardIcon, getCardLabel } from '@/lib/cardBrand';
-import { readBudgetSnapshot, writeBudgetSnapshot } from '@/lib/indexedDbBudget';
+import { readBudgetSnapshot } from '@/lib/indexedDbBudget';
 import { useEffectiveCurrentDate } from '@/lib/testingDate';
 import styles from './page.module.css';
 
@@ -126,13 +125,7 @@ export default function Home() {
     let mounted = true;
 
     const hydrate = async () => {
-      const local = await readBudgetSnapshot();
-      let nextSnapshot = local;
-      const fromServer = await readBudgetFromServer();
-      if (fromServer && fromServer.updatedAt > local.updatedAt) {
-        nextSnapshot = fromServer;
-        await writeBudgetSnapshot(fromServer);
-      }
+      const nextSnapshot = await readBudgetSnapshot();
       if (!mounted) return;
       setSnapshot(nextSnapshot);
     };

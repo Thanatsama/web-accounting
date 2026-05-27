@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --port 3030",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
@@ -17,7 +17,7 @@
     "@mui/material": "^7.3.8",
     "firebase-admin": "^13.5.0",
     "lodash": "^4.17.23",
-    "next": "16.1.6",
+    "next": "^16.2.6",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },
@@ -27,7 +27,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.1.6",
+    "eslint-config-next": "^16.2.6",
     "typescript": "^5"
   }
 }
