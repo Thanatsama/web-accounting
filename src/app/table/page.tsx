@@ -300,7 +300,7 @@ export default function TablePage() {
       if (!mounted) return;
       setRows(nextSnapshot.rows);
       setTotalTables(Math.max(1, nextSnapshot.totalTables));
-      setOpeningBalance(nextSnapshot.accountBalanceByMonth?.[currentRoundIndex + 1] ?? nextSnapshot.accountBalance);
+      setOpeningBalance(nextSnapshot.accountBalance);
       setAccountBalanceByMonth(nextSnapshot.accountBalanceByMonth ?? {});
       setMonthlyIncome(nextSnapshot.monthlyIncome);
       setMonthlyIncomeByMonth(nextSnapshot.monthlyIncomeByMonth ?? {});
@@ -322,7 +322,7 @@ export default function TablePage() {
       const nextSnapshot = customEvent.detail?.snapshot;
       if (!nextSnapshot) return;
       if (typeof nextSnapshot.accountBalance === 'number') {
-        setOpeningBalance(nextSnapshot.accountBalanceByMonth?.[currentRoundIndex + 1] ?? nextSnapshot.accountBalance);
+        setOpeningBalance(nextSnapshot.accountBalance);
       }
       if (typeof nextSnapshot.monthlyIncome === 'number') {
         setMonthlyIncome(nextSnapshot.monthlyIncome);
@@ -412,7 +412,7 @@ export default function TablePage() {
 
       setRows(nextSnapshot.rows);
       setTotalTables(nextSnapshot.totalTables);
-      setOpeningBalance(nextSnapshot.accountBalanceByMonth?.[currentRoundIndex + 1] ?? nextSnapshot.accountBalance);
+      setOpeningBalance(nextSnapshot.accountBalance);
       setAccountBalanceByMonth(nextSnapshot.accountBalanceByMonth ?? {});
       setMonthlyIncome(nextSnapshot.monthlyIncome);
       setMonthlyIncomeByMonth(nextSnapshot.monthlyIncomeByMonth ?? {});
@@ -647,7 +647,7 @@ export default function TablePage() {
 
       setRows(nextSnapshot.rows);
       setTotalTables(nextSnapshot.totalTables);
-      setOpeningBalance(nextSnapshot.accountBalanceByMonth?.[editingMonthIncomeTableIndex] ?? nextSnapshot.accountBalance);
+      setOpeningBalance(nextSnapshot.accountBalance);
       setAccountBalanceByMonth(nextSnapshot.accountBalanceByMonth ?? {});
       setMonthlyIncome(nextSnapshot.monthlyIncome);
       setMonthlyIncomeByMonth(nextSnapshot.monthlyIncomeByMonth ?? {});
@@ -670,7 +670,7 @@ export default function TablePage() {
 
       setRows(nextSnapshot.rows);
       setTotalTables(nextSnapshot.totalTables);
-      setOpeningBalance(nextSnapshot.accountBalanceByMonth?.[editingMonthIncomeTableIndex] ?? nextSnapshot.accountBalance);
+      setOpeningBalance(nextSnapshot.accountBalance);
       setAccountBalanceByMonth(nextSnapshot.accountBalanceByMonth ?? {});
       setMonthlyIncome(nextSnapshot.monthlyIncome);
       setMonthlyIncomeByMonth(nextSnapshot.monthlyIncomeByMonth ?? {});
@@ -748,6 +748,11 @@ export default function TablePage() {
     return starts;
   }, [tableIndexes.length, openingBalance, accountBalanceByMonth, monthlyIncome, monthlyIncomeByMonth, monthEndingByMonth]);
 
+  const currentRoundBalance = useMemo(
+    () => roundStartingByMonth[currentRoundIndex - 1] ?? openingBalance,
+    [roundStartingByMonth, currentRoundIndex, openingBalance],
+  );
+
   return (
     <MarketingLayout>
       <Container maxWidth="lg" className={styles.wrapper}>
@@ -770,7 +775,7 @@ export default function TablePage() {
             </Box>
             <Box className={styles.summaryField}>
               <Typography className={styles.summaryLabel}>ยอดคงเหลือ (THB)</Typography>
-              <Typography className={styles.summaryValue}>{formatNumber(openingBalance)}</Typography>
+              <Typography className={styles.summaryValue}>{formatNumber(currentRoundBalance)}</Typography>
             </Box>
             {!isMobileView && (
               <Button
