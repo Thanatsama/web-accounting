@@ -1,5 +1,7 @@
 import { createTheme } from "@mui/material/styles";
 
+const appFontFamily = '"Sukhumvit Set", var(--font-prompt), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+
 export const appTheme = createTheme({
   palette: {
     mode: "light",
@@ -19,23 +21,43 @@ export const appTheme = createTheme({
     borderRadius: 20,
   },
   typography: {
-    fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    fontFamily: appFontFamily,
+    fontWeightRegular: 500,
+    fontWeightMedium: 600,
+    fontWeightBold: 700,
     h1: {
-      fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      fontFamily: appFontFamily,
       fontWeight: 700,
       letterSpacing: "-0.03em",
     },
     h2: {
-      fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      fontFamily: appFontFamily,
       fontWeight: 600,
       letterSpacing: "-0.02em",
     },
     h3: {
-      fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      fontFamily: appFontFamily,
       fontWeight: 600,
       letterSpacing: "-0.015em",
     },
+    body1: {
+      fontFamily: appFontFamily,
+      fontWeight: 500,
+    },
+    body2: {
+      fontFamily: appFontFamily,
+      fontWeight: 500,
+    },
+    subtitle1: {
+      fontFamily: appFontFamily,
+      fontWeight: 500,
+    },
+    subtitle2: {
+      fontFamily: appFontFamily,
+      fontWeight: 600,
+    },
     button: {
+      fontFamily: appFontFamily,
       textTransform: "none",
       fontWeight: 600,
     },
@@ -119,6 +141,7 @@ export const appTheme = createTheme({
           paddingTop: "0.95rem",
           paddingBottom: "0.95rem",
           fontSize: "1.02rem",
+          fontWeight: 500,
           color: "#1f2633",
         },
       },
@@ -140,6 +163,7 @@ export const appTheme = createTheme({
           display: "flex",
           alignItems: "center",
           minHeight: "1.25rem",
+          fontWeight: 500,
         },
         icon: {
           color: "#62728a",
@@ -154,6 +178,7 @@ export const appTheme = createTheme({
           marginBlock: 2,
           minHeight: 38,
           fontSize: "0.95rem",
+          fontWeight: 500,
           "&.Mui-selected": {
             backgroundColor: "rgba(0, 113, 227, 0.10)",
           },

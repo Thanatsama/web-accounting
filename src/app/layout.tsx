@@ -1,11 +1,15 @@
 import type { Metadata, Viewport } from "next";
+import { Prompt } from "next/font/google";
 import AppRouterStyleCacheProvider from "@/components/providers/AppRouterStyleCacheProvider";
 import AppThemeProvider from "@/components/providers/AppThemeProvider";
-import "@fontsource/inter/400.css";
-import "@fontsource/inter/500.css";
-import "@fontsource/inter/600.css";
-import "@fontsource/inter/700.css";
 import "./globals.css";
+
+const prompt = Prompt({
+  subsets: ["thai", "latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+  variable: "--font-prompt",
+});
 
 export const metadata: Metadata = {
   title: "Web Accounting",
@@ -25,7 +29,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>
+      <body className={prompt.variable}>
         <AppRouterStyleCacheProvider options={{ key: "css" }}>
           <AppThemeProvider>{children}</AppThemeProvider>
         </AppRouterStyleCacheProvider>
