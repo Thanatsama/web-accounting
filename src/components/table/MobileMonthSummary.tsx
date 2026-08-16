@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import { Chip, Stack, Typography } from '@mui/material';
 import map from 'lodash/map';
+import { getStatusChipSx } from '@/components/shared/statusChip';
 import { MonthDisplayRow } from '@/components/table/types';
 import { getCardIcon, getCardLabel } from '@/lib/cardBrand';
 import styles from './MobileMonthSummary.module.css';
@@ -46,7 +47,7 @@ export default function MobileMonthSummary({ rows }: MobileMonthSummaryProps) {
             <Typography className={styles.mobileSummaryLabel}>
               ค่าใช้จ่าย {row.expense.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} THB
             </Typography>
-            <Chip label={row.status} size="small" color={row.status === 'PAID' ? 'success' : 'warning'} variant="filled" />
+            <Chip label={row.status} size="small" variant="filled" sx={getStatusChipSx(row.status)} />
           </Stack>
         </div>
       ))}

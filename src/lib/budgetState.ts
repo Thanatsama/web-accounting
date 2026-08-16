@@ -37,11 +37,18 @@ export type BudgetRow = {
   };
 };
 
+export type HomeExpense = {
+  id: number;
+  detail: string;
+  amount: number;
+};
+
 export type BudgetSnapshot = {
   accountBalance: number;
   accountBalanceByMonth?: Record<string, number>;
   monthlyIncome: number;
   monthlyIncomeByMonth?: Record<string, number>;
+  homeExpensesByMonth?: Record<string, HomeExpense[]>;
   totalTables: number;
   rows: BudgetRow[];
   updatedAt: number;
@@ -52,6 +59,7 @@ export const DEFAULT_BUDGET_SNAPSHOT: BudgetSnapshot = {
   accountBalanceByMonth: {},
   monthlyIncome: 0,
   monthlyIncomeByMonth: {},
+  homeExpensesByMonth: {},
   totalTables: 1,
   rows: [],
   updatedAt: 0,

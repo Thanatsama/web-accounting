@@ -3,6 +3,7 @@ import Image from 'next/image';
 import map from 'lodash/map';
 import { Chip } from '@mui/material';
 import { MonthDisplayRow } from '@/components/table/types';
+import { getStatusChipSx } from '@/components/shared/statusChip';
 import { getCardIcon, getCardLabel } from '@/lib/cardBrand';
 import styles from './DesktopRowsTable.module.css';
 
@@ -63,7 +64,7 @@ export default function DesktopRowsTable({ rows, readonly = false, onRowClick, f
               </td>
               <td>{formatNumber(row.balanceAfter)}</td>
               <td>
-                <Chip label={row.status} size="small" color={row.status === 'PAID' ? 'success' : 'warning'} variant="filled" />
+                <Chip label={row.status} size="small" variant="filled" sx={getStatusChipSx(row.status)} />
               </td>
             </tr>
           ))}

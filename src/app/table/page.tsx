@@ -22,7 +22,7 @@ import {
 } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import { getCurrentRoundIndex, getMonthInputValue, getRoundIndexFromDate, getRoundLabel } from '@/lib/budgetCalendar';
-import { BudgetRow, CardType, RowStatus } from '@/lib/budgetState';
+import { BudgetRow, CardType, HomeExpense, RowStatus } from '@/lib/budgetState';
 import { CARD_TYPE_SELECT_OPTIONS, CardTypeInput } from '@/lib/cardBrand';
 import { ensureUniqueDetail, getDetailKey } from '@/lib/detailName';
 import { readBudgetSnapshot, updateBudgetSnapshot, writeBudgetSnapshot } from '@/lib/indexedDbBudget';
@@ -241,6 +241,7 @@ export default function TablePage() {
   const [accountBalanceByMonth, setAccountBalanceByMonth] = useState<Record<string, number>>({});
   const [monthlyIncome, setMonthlyIncome] = useState(0);
   const [monthlyIncomeByMonth, setMonthlyIncomeByMonth] = useState<Record<string, number>>({});
+  const [homeExpensesByMonth, setHomeExpensesByMonth] = useState<Record<string, HomeExpense[]>>({});
   const [rows, setRows] = useState<BudgetRow[]>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -274,8 +275,8 @@ export default function TablePage() {
       borderRadius: '12px',
       backgroundColor: '#fcfdff',
     },
-    '& .MuiInputBase-input': { py: 1.1 },
-    '& .MuiFormHelperText-root': { mt: 0.6 },
+    '& .MuiInputBase-input': { py: 1.12 },
+    '& .MuiFormHelperText-root': { mt: 0.9 },
   };
 
   const tableIndexes = useMemo(() => createTableIndexes(totalTables), [totalTables]);
@@ -304,6 +305,7 @@ export default function TablePage() {
       setAccountBalanceByMonth(nextSnapshot.accountBalanceByMonth ?? {});
       setMonthlyIncome(nextSnapshot.monthlyIncome);
       setMonthlyIncomeByMonth(nextSnapshot.monthlyIncomeByMonth ?? {});
+      setHomeExpensesByMonth(nextSnapshot.homeExpensesByMonth ?? {});
     };
 
     void hydrate();
@@ -315,6 +317,7 @@ export default function TablePage() {
           accountBalanceByMonth?: Record<string, number>;
           monthlyIncome?: number;
           monthlyIncomeByMonth?: Record<string, number>;
+          homeExpensesByMonth?: Record<string, HomeExpense[]>;
           totalTables?: number;
           rows?: BudgetRow[];
         };
@@ -332,6 +335,9 @@ export default function TablePage() {
       }
       if (nextSnapshot.monthlyIncomeByMonth && typeof nextSnapshot.monthlyIncomeByMonth === 'object') {
         setMonthlyIncomeByMonth(nextSnapshot.monthlyIncomeByMonth);
+      }
+      if (nextSnapshot.homeExpensesByMonth && typeof nextSnapshot.homeExpensesByMonth === 'object') {
+        setHomeExpensesByMonth(nextSnapshot.homeExpensesByMonth);
       }
       if (Array.isArray(nextSnapshot.rows)) {
         setRows(nextSnapshot.rows);
@@ -748,9 +754,9 @@ export default function TablePage() {
     return starts;
   }, [tableIndexes.length, openingBalance, accountBalanceByMonth, monthlyIncome, monthlyIncomeByMonth, monthEndingByMonth]);
 
-  const currentRoundBalance = useMemo(
-    () => roundStartingByMonth[currentRoundIndex - 1] ?? openingBalance,
-    [roundStartingByMonth, currentRoundIndex, openingBalance],
+  const currentTableReserve = useMemo(
+    () => monthEndingByMonth[currentRoundIndex - 1] ?? openingBalance,
+    [monthEndingByMonth, currentRoundIndex, openingBalance],
   );
 
   return (
@@ -774,8 +780,8 @@ export default function TablePage() {
               <Typography className={styles.summaryValue}>{totalTables}</Typography>
             </Box>
             <Box className={styles.summaryField}>
-              <Typography className={styles.summaryLabel}>ยอดคงเหลือ (THB)</Typography>
-              <Typography className={styles.summaryValue}>{formatNumber(currentRoundBalance)}</Typography>
+              <Typography className={styles.summaryLabel}>เงินสำรอง</Typography>
+              <Typography className={styles.summaryValue}>{formatNumber(currentTableReserve)}</Typography>
             </Box>
             {!isMobileView && (
               <Button
@@ -839,6 +845,7 @@ export default function TablePage() {
             const monthArrayIndex = tableIndex - 1;
             const totalExpenseThisMonth = expenseByMonth[monthArrayIndex] ?? 0;
             const roundStartingBalance = roundStartingByMonth[monthArrayIndex] ?? openingBalance;
+            const monthIncome = resolveMonthlyIncomeByMonth(monthlyIncome, monthlyIncomeByMonth, tableIndex);
             const isCustomMonthIncome = isCustomMonthlyIncomeByMonth(monthlyIncomeByMonth, tableIndex);
             let runningRowBalance = roundStartingBalance;
             const displayRowsWithBalance: MonthDisplayRow[] = map(displayRows, (row) => {
@@ -852,9 +859,6 @@ export default function TablePage() {
                   <Box className={styles.tableTitleBlock}>
                     <Typography variant="h6" className={styles.tableHeading}>
                       รอบจ่าย {getRoundLabel(tableIndex)}
-                    </Typography>
-                    <Typography className={styles.roundBaseLabel}>
-                      ยอดตั้งต้นรอบนี้: {formatNumber(roundStartingBalance)} THB
                     </Typography>
                   </Box>
                   <Box className={styles.monthSummaryGroup}>
@@ -878,18 +882,22 @@ export default function TablePage() {
                         className={styles.monthRemainingLabel}
                         sx={{ color: isCustomMonthIncome ? '#086F3A' : '#38679a' }}
                       >
-                        คงเหลือต่อเดือน
+                        ยอดตั้งต้นรอบนี้
                       </Typography>
                       <Typography
                         className={styles.monthRemainingValue}
                         sx={{ color: isCustomMonthIncome ? '#086F3A' : '#38679a' }}
                       >
-                        {formatNumber(remainingThisMonth)} THB
+                        {formatNumber(monthIncome)} THB
                       </Typography>
                     </Box>
                     <Box className={styles.monthExpenseSummary}>
                       <Typography className={styles.monthExpenseLabel}>สรุปค่าใช้จ่าย</Typography>
                       <Typography className={styles.monthExpenseValue}>{formatNumber(totalExpenseThisMonth)} THB</Typography>
+                    </Box>
+                    <Box className={styles.monthReserve}>
+                      <Typography className={styles.monthReserveLabel}>เงินสำรอง</Typography>
+                      <Typography className={styles.monthReserveValue}>{formatNumber(remainingThisMonth)} THB</Typography>
                     </Box>
                   </Box>
                 </Stack>
@@ -996,9 +1004,11 @@ export default function TablePage() {
               {archivedTableIndexes.length === 0 && <Typography color="text.secondary">ยังไม่มีเดือนที่ผ่านมา</Typography>}
               {map(archivedTableIndexes, (tableIndex) => {
                 const displayRows = buildDisplayRows(rows, tableIndex);
+                const archiveHomeExpenses = homeExpensesByMonth[String(tableIndex)] ?? [];
                 const monthArrayIndex = tableIndex - 1;
                 const totalExpenseThisMonth = expenseByMonth[monthArrayIndex] ?? 0;
                 const roundStartingBalance = roundStartingByMonth[monthArrayIndex] ?? openingBalance;
+                const monthIncome = resolveMonthlyIncomeByMonth(monthlyIncome, monthlyIncomeByMonth, tableIndex);
                 const remainingThisMonth = monthEndingByMonth[monthArrayIndex] ?? roundStartingBalance;
                 const isCustomMonthIncome = isCustomMonthlyIncomeByMonth(monthlyIncomeByMonth, tableIndex);
                 let runningRowBalance = roundStartingBalance;
@@ -1018,22 +1028,43 @@ export default function TablePage() {
                         <Typography variant="h6" className={styles.tableHeading}>
                           รอบจ่าย {getRoundLabel(tableIndex)}
                         </Typography>
-                        <Typography className={styles.roundBaseLabel}>
-                          ยอดตั้งต้นรอบนี้: {formatNumber(roundStartingBalance)} THB
-                        </Typography>
                       </Box>
                       <Box className={styles.monthSummaryGroup}>
                         <Box className={`${styles.monthRemaining} ${isCustomMonthIncome ? styles.monthRemainingCustom : ''}`}>
-                          <Typography className={styles.monthRemainingLabel}>คงเหลือต่อเดือน</Typography>
-                          <Typography className={styles.monthRemainingValue}>{formatNumber(remainingThisMonth)} THB</Typography>
+                          <Typography className={styles.monthRemainingLabel}>ยอดตั้งต้นรอบนี้</Typography>
+                          <Typography className={styles.monthRemainingValue}>{formatNumber(monthIncome)} THB</Typography>
                         </Box>
                         <Box className={styles.monthExpenseSummary}>
                           <Typography className={styles.monthExpenseLabel}>สรุปค่าใช้จ่าย</Typography>
                           <Typography className={styles.monthExpenseValue}>{formatNumber(totalExpenseThisMonth)} THB</Typography>
                         </Box>
+                        <Box className={styles.monthReserve}>
+                          <Typography className={styles.monthReserveLabel}>เงินสำรอง</Typography>
+                          <Typography className={styles.monthReserveValue}>{formatNumber(remainingThisMonth)} THB</Typography>
+                        </Box>
                       </Box>
                     </Stack>
                     <DesktopRowsTable rows={displayRowsWithBalance} readonly formatNumber={formatNumber} />
+                    <Box className={styles.archiveExtraExpenseSection}>
+                      <Typography className={styles.archiveExtraExpenseTitle}>รายจ่ายนอกตาราง</Typography>
+                      {archiveHomeExpenses.length === 0 && (
+                        <Typography className={styles.archiveExtraExpenseEmpty}>ไม่มีรายการ</Typography>
+                      )}
+                      {archiveHomeExpenses.length > 0 && (
+                        <Stack spacing={0.55}>
+                          {map(archiveHomeExpenses, (item, index) => (
+                            <Box key={`archive-expense-${tableIndex}-${item.id}`} className={styles.archiveExtraExpenseRow}>
+                              <Typography className={styles.archiveExtraExpenseLabel}>
+                                {index + 1}. {item.detail}
+                              </Typography>
+                              <Typography className={styles.archiveExtraExpenseValue}>
+                                {formatNumber(item.amount)} THB
+                              </Typography>
+                            </Box>
+                          ))}
+                        </Stack>
+                      )}
+                    </Box>
                   </section>
                 );
               })}
@@ -1061,8 +1092,8 @@ export default function TablePage() {
           }}
         >
           <form onSubmit={handleAddRow}>
-            <DialogTitle sx={{ pb: 1 }}>
-              <Stack spacing={0.2}>
+            <DialogTitle sx={{ pb: 1.15 }}>
+              <Stack spacing={0.45}>
                 <Typography component="div" variant="h5" sx={{ fontWeight: 700, letterSpacing: '-0.02em' }}>
                   เพิ่มรายการ
                 </Typography>
@@ -1071,8 +1102,8 @@ export default function TablePage() {
                 </Typography>
               </Stack>
             </DialogTitle>
-            <DialogContent sx={{ pt: '8px !important' }}>
-              <Stack spacing={1.2} mt={0.5}>
+            <DialogContent sx={{ pt: '12px !important', pb: 1.2 }}>
+              <Stack spacing={1.65} mt={0.7}>
                 <TextField
                   size="small"
                   fullWidth
@@ -1163,7 +1194,7 @@ export default function TablePage() {
                 </TextField>
               </Stack>
             </DialogContent>
-            <DialogActions sx={{ px: 3, pb: 2.4, pt: 1.5, gap: 1 }}>
+            <DialogActions sx={{ px: 3, pb: 2.6, pt: 2.2, gap: 1.2 }}>
               <Button onClick={closeAddDialog} sx={{ borderRadius: 999, px: 1.8 }}>
                 ยกเลิก
               </Button>

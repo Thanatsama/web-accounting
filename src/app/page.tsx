@@ -3,12 +3,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import map from 'lodash/map';
-import { Box, Chip, Container, Stack, Typography } from '@mui/material';
+import { Box, Button, Chip, Container, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField, Typography } from '@mui/material';
+import { getStatusChipSx } from '@/components/shared/statusChip';
 import MarketingLayout from '@/components/layout/MarketingLayout';
 import { getCurrentRoundIndex, getRoundLabel } from '@/lib/budgetCalendar';
-import { BudgetRow, BudgetSnapshot, CardType, DEFAULT_BUDGET_SNAPSHOT } from '@/lib/budgetState';
+import { BudgetRow, BudgetSnapshot, CardType, DEFAULT_BUDGET_SNAPSHOT, HomeExpense } from '@/lib/budgetState';
 import { getCardIcon, getCardLabel } from '@/lib/cardBrand';
-import { readBudgetSnapshot } from '@/lib/indexedDbBudget';
+import { readBudgetSnapshot, updateBudgetSnapshot } from '@/lib/indexedDbBudget';
 import { useEffectiveCurrentDate } from '@/lib/testingDate';
 import styles from './page.module.css';
 
@@ -30,6 +31,10 @@ function formatNumber(value: number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
+}
+
+function nowTimestamp(): number {
+  return new Date().getTime();
 }
 
 function resolveExpenseByMonth(row: BudgetRow, tableIndex: number): number {
@@ -119,6 +124,9 @@ function buildRoundRows(rows: BudgetRow[], roundIndex: number): RoundRow[] {
 
 export default function Home() {
   const [snapshot, setSnapshot] = useState<BudgetSnapshot>(DEFAULT_BUDGET_SNAPSHOT);
+  const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
+  const [expenseDetail, setExpenseDetail] = useState('');
+  const [expenseAmount, setExpenseAmount] = useState('0');
   const currentDate = useEffectiveCurrentDate();
 
   useEffect(() => {
@@ -202,7 +210,16 @@ export default function Home() {
   ]);
 
   const currentRows = useMemo(() => buildRoundRows(snapshot.rows, currentRoundIndex), [snapshot.rows, currentRoundIndex]);
-  const totalExpense = useMemo(() => currentRows.reduce((sum, row) => sum + row.expense, 0), [currentRows]);
+  const currentHomeExpenses = useMemo(
+    () => snapshot.homeExpensesByMonth?.[String(currentRoundIndex)] ?? [],
+    [snapshot.homeExpensesByMonth, currentRoundIndex],
+  );
+  const tableExpense = useMemo(() => currentRows.reduce((sum, row) => sum + row.expense, 0), [currentRows]);
+  const extraExpense = useMemo(
+    () => currentHomeExpenses.reduce((sum, item) => sum + item.amount, 0),
+    [currentHomeExpenses],
+  );
+  const totalExpense = tableExpense + extraExpense;
   const monthStarting = roundStartingByMonth[currentRoundIndex - 1] ?? snapshot.accountBalance;
   const currentRowsWithBalance = useMemo(
     () =>
@@ -214,18 +231,80 @@ export default function Home() {
     [currentRows, monthStarting],
   );
   const monthRemaining =
-    monthEndingByMonth[currentRoundIndex - 1] ??
+    (monthEndingByMonth[currentRoundIndex - 1] ?? 
     (currentRowsWithBalance.length > 0
       ? currentRowsWithBalance[currentRowsWithBalance.length - 1].balanceAfter
-      : monthStarting);
+      : monthStarting)) - extraExpense;
   const pendingRows = currentRows.filter((row) => row.status === 'PENDING');
+
+  const closeAddExpenseDialog = () => {
+    setIsAddExpenseOpen(false);
+    setExpenseDetail('');
+    setExpenseAmount('0');
+  };
+
+  const addHomeExpense = () => {
+    void (async () => {
+      const amount = Number(expenseAmount);
+      const detail = expenseDetail.trim();
+      if (!detail) return;
+      if (!Number.isFinite(amount) || amount < 0) return;
+
+      const nextSnapshot = await updateBudgetSnapshot((current) => {
+        const monthKey = String(currentRoundIndex);
+        const currentExpenses = current.homeExpensesByMonth?.[monthKey] ?? [];
+        const nextExpense: HomeExpense = {
+          id: nowTimestamp(),
+          detail,
+          amount,
+        };
+
+        return {
+          ...current,
+          homeExpensesByMonth: {
+            ...(current.homeExpensesByMonth ?? {}),
+            [monthKey]: [...currentExpenses, nextExpense],
+          },
+          updatedAt: nowTimestamp(),
+        };
+      });
+
+      setSnapshot(nextSnapshot);
+      closeAddExpenseDialog();
+    })();
+  };
+
+  const removeHomeExpense = (expenseId: number) => {
+    void (async () => {
+      const monthKey = String(currentRoundIndex);
+      const nextSnapshot = await updateBudgetSnapshot((current) => {
+        const currentExpenses = current.homeExpensesByMonth?.[monthKey] ?? [];
+        const nextExpenses = currentExpenses.filter((item) => item.id !== expenseId);
+        return {
+          ...current,
+          homeExpensesByMonth: {
+            ...(current.homeExpensesByMonth ?? {}),
+            [monthKey]: nextExpenses,
+          },
+          updatedAt: nowTimestamp(),
+        };
+      });
+
+      setSnapshot(nextSnapshot);
+    })();
+  };
 
   return (
     <MarketingLayout>
       <Container maxWidth="lg" className={styles.wrapper}>
-        <Typography variant="h3" className={styles.title}>
-          สรุปรายการจ่าย {getRoundLabel(currentRoundIndex)}
-        </Typography>
+        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', md: 'center' }} gap={1.2}>
+          <Typography variant="h3" className={styles.title}>
+            สรุปรายการจ่าย {getRoundLabel(currentRoundIndex)}
+          </Typography>
+          <Button variant="contained" className={styles.addExpenseButton} onClick={() => setIsAddExpenseOpen(true)}>
+            เพิ่มรายจ่าย
+          </Button>
+        </Stack>
         <br />
         <Box className={styles.summaryGrid}>
           <Box className={styles.summaryCard}>
@@ -241,7 +320,7 @@ export default function Home() {
             <Typography className={styles.value}>{formatNumber(totalExpense)} THB</Typography>
           </Box>
           <Box className={styles.summaryCard}>
-            <Typography className={styles.label}>คงเหลือต่อเดือน</Typography>
+            <Typography className={styles.label}>เงินสำรอง</Typography>
             <Typography className={styles.value}>{formatNumber(monthRemaining)} THB</Typography>
           </Box>
         </Box>
@@ -281,12 +360,68 @@ export default function Home() {
                       {row.source ? ` • ที่มา ${row.source}` : ''}
                     </Typography>
                   </Box>
-                  <Chip label="PENDING" size="small" color="warning" />
+                  <Chip label="PENDING" size="small" sx={getStatusChipSx('PENDING')} />
                 </Box>
               ))}
             </Stack>
           )}
         </Box>
+
+        <Box className={`${styles.pendingCard} ${styles.extraExpenseCard}`}>
+          <Typography className={styles.pendingTitle}>รายจ่ายนอกตาราง</Typography>
+          {currentHomeExpenses.length === 0 && <Typography className={styles.emptyText}>ยังไม่มีรายจ่ายเพิ่มเติมในเดือนนี้</Typography>}
+          {currentHomeExpenses.length > 0 && (
+            <Stack spacing={1}>
+              {map(currentHomeExpenses, (item, index) => (
+                <Box key={item.id} className={styles.extraExpenseRow}>
+                  <Box>
+                    <Typography className={styles.pendingDetail}>
+                      {index + 1}. {item.detail}
+                    </Typography>
+                    <Typography className={styles.pendingMeta}>ค่าใช้จ่าย {formatNumber(item.amount)} THB</Typography>
+                  </Box>
+                  <Button size="small" color="error" variant="outlined" onClick={() => removeHomeExpense(item.id)}>
+                    ลบ
+                  </Button>
+                </Box>
+              ))}
+            </Stack>
+          )}
+        </Box>
+
+        <Dialog open={isAddExpenseOpen} onClose={closeAddExpenseDialog} fullWidth maxWidth="xs">
+          <DialogTitle sx={{ pb: 0.8 }}>
+            <Typography component="div" variant="h6" sx={{ fontWeight: 700 }}>
+              เพิ่มรายจ่ายนอกตาราง
+            </Typography>
+          </DialogTitle>
+          <DialogContent sx={{ pt: '8px !important' }}>
+            <Stack spacing={1.2}>
+              <TextField
+                size="small"
+                label="รายละเอียด"
+                value={expenseDetail}
+                onChange={(event) => setExpenseDetail(event.target.value)}
+                fullWidth
+              />
+              <TextField
+                size="small"
+                label="ค่าใช้จ่าย (THB)"
+                type="number"
+                value={expenseAmount}
+                onChange={(event) => setExpenseAmount(event.target.value)}
+                slotProps={{ htmlInput: { min: 0, step: '0.01' } }}
+                fullWidth
+              />
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={closeAddExpenseDialog}>ยกเลิก</Button>
+            <Button variant="contained" onClick={addHomeExpense}>
+              บันทึก
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Container>
     </MarketingLayout>
   );

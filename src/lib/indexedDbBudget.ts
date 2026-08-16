@@ -1,5 +1,5 @@
 import { readBudgetFromServer, writeBudgetToServer } from "@/lib/budgetApi";
-import { BudgetSnapshot, DEFAULT_BUDGET_SNAPSHOT } from "@/lib/budgetState";
+import { BudgetSnapshot, DEFAULT_BUDGET_SNAPSHOT, HomeExpense } from "@/lib/budgetState";
 
 function asNumber(value: unknown, fallback: number): number {
   const parsed = Number(value);
@@ -30,12 +30,34 @@ function normalizeSnapshot(value: unknown): BudgetSnapshot {
           ]),
         )
       : {};
+  const homeExpensesByMonth =
+    candidate.homeExpensesByMonth && typeof candidate.homeExpensesByMonth === "object"
+      ? Object.fromEntries(
+          Object.entries(candidate.homeExpensesByMonth).map(([key, value]) => [
+            key,
+            Array.isArray(value)
+              ? value
+                  .map((item) => {
+                    if (!item || typeof item !== "object") return null;
+                    const candidateItem = item as Partial<HomeExpense>;
+                    return {
+                      id: asNumber(candidateItem.id, Date.now()),
+                      detail: typeof candidateItem.detail === "string" ? candidateItem.detail : "",
+                      amount: asNumber(candidateItem.amount, 0),
+                    };
+                  })
+                  .filter((item): item is HomeExpense => item !== null)
+              : [],
+          ]),
+        )
+      : {};
 
   return {
     accountBalance: asNumber(candidate.accountBalance, 0),
     accountBalanceByMonth,
     monthlyIncome: asNumber(candidate.monthlyIncome, 0),
     monthlyIncomeByMonth,
+    homeExpensesByMonth,
     totalTables: Math.max(1, Math.floor(asNumber(candidate.totalTables, 1))),
     rows: Array.isArray(candidate.rows) ? candidate.rows : [],
     updatedAt: asNumber(candidate.updatedAt, 0),
