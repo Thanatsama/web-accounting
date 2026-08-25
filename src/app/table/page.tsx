@@ -21,12 +21,18 @@ import {
   useTheme,
 } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import { getCurrentRoundIndex, getMonthInputValue, getRoundIndexFromDate, getRoundLabel } from '@/lib/budgetCalendar';
+import {
+  getCurrentRoundIndex,
+  getMonthInputValue,
+  getRoundIndexFromDate,
+  getRoundLabel,
+  RESERVE_SYSTEM_START_ROUND,
+} from '@/lib/budgetCalendar';
 import { BudgetRow, CardType, HomeExpense, RowStatus } from '@/lib/budgetState';
 import { CARD_TYPE_SELECT_OPTIONS, CardTypeInput } from '@/lib/cardBrand';
 import { ensureUniqueDetail, getDetailKey } from '@/lib/detailName';
 import { readBudgetSnapshot, updateBudgetSnapshot, writeBudgetSnapshot } from '@/lib/indexedDbBudget';
-import { useEffectiveCurrentDate } from '@/lib/testingDate';
+import { useCurrentDate } from '@/lib/currentDate';
 import DesktopRowsTable from '@/components/table/DesktopRowsTable';
 import MobileMonthSummary from '@/components/table/MobileMonthSummary';
 import { MonthDisplayRow } from '@/components/table/types';
@@ -269,7 +275,7 @@ export default function TablePage() {
   const [editSource, setEditSource] = useState('');
   const [editCardType, setEditCardType] = useState<CardTypeInput>('');
   const [editStatus, setEditStatus] = useState<RowStatus>('PENDING');
-  const currentDate = useEffectiveCurrentDate();
+  const currentDate = useCurrentDate();
   const formFieldSx: SxProps<Theme> = {
     '& .MuiOutlinedInput-root': {
       borderRadius: '12px',
@@ -727,7 +733,7 @@ export default function TablePage() {
     for (let i = 0; i < tableIndexes.length; i += 1) {
       const tableIndex = i + 1;
       const monthIncome = resolveMonthlyIncomeByMonth(monthlyIncome, monthlyIncomeByMonth, tableIndex);
-      const fallbackStartBalance = i === 0 ? openingBalance : (endings[i - 1] ?? openingBalance) + monthIncome;
+      const fallbackStartBalance = i === 0 ? openingBalance : monthIncome;
       const overriddenStartBalance = resolveAccountBalanceByMonth(openingBalance, accountBalanceByMonth, tableIndex);
       const startBalance = overriddenStartBalance ?? fallbackStartBalance;
       const displayRows = buildDisplayRows(rows, tableIndex);
@@ -740,23 +746,40 @@ export default function TablePage() {
   const roundStartingByMonth = useMemo(() => {
     const starts: number[] = [];
     for (let i = 0; i < tableIndexes.length; i += 1) {
-      if (i === 0) {
-        starts.push(openingBalance);
-      } else {
-        const prevEnding = monthEndingByMonth[i - 1] ?? openingBalance;
-        const tableIndex = i + 1;
-        const monthIncome = resolveMonthlyIncomeByMonth(monthlyIncome, monthlyIncomeByMonth, tableIndex);
-        const fallbackStartBalance = prevEnding + monthIncome;
-        const overriddenStartBalance = resolveAccountBalanceByMonth(openingBalance, accountBalanceByMonth, tableIndex);
-        starts.push(overriddenStartBalance ?? fallbackStartBalance);
-      }
+      const tableIndex = i + 1;
+      const monthIncome = resolveMonthlyIncomeByMonth(monthlyIncome, monthlyIncomeByMonth, tableIndex);
+      const fallbackStartBalance = i === 0 ? openingBalance : monthIncome;
+      const overriddenStartBalance = resolveAccountBalanceByMonth(openingBalance, accountBalanceByMonth, tableIndex);
+      starts.push(overriddenStartBalance ?? fallbackStartBalance);
     }
     return starts;
-  }, [tableIndexes.length, openingBalance, accountBalanceByMonth, monthlyIncome, monthlyIncomeByMonth, monthEndingByMonth]);
+  }, [tableIndexes.length, openingBalance, accountBalanceByMonth, monthlyIncome, monthlyIncomeByMonth]);
+
+  const reserveByMonth = useMemo(() => {
+    return tableIndexes.reduce<number[]>((reserves, tableIndex, monthArrayIndex) => {
+      const outsideTableExpense = (homeExpensesByMonth[String(tableIndex)] ?? []).reduce(
+        (sum, item) => sum + item.amount,
+        0,
+      );
+      const withinMonthRemaining =
+        (monthEndingByMonth[monthArrayIndex] ?? roundStartingByMonth[monthArrayIndex] ?? 0) -
+        outsideTableExpense;
+
+      if (tableIndex < RESERVE_SYSTEM_START_ROUND) {
+        return [...reserves, withinMonthRemaining];
+      }
+      if (tableIndex === RESERVE_SYSTEM_START_ROUND) {
+        return [...reserves, 0];
+      }
+
+      const previousReserve = reserves[monthArrayIndex - 1] ?? 0;
+      return [...reserves, previousReserve + withinMonthRemaining];
+    }, []);
+  }, [tableIndexes, homeExpensesByMonth, monthEndingByMonth, roundStartingByMonth]);
 
   const currentTableReserve = useMemo(
-    () => monthEndingByMonth[currentRoundIndex - 1] ?? openingBalance,
-    [monthEndingByMonth, currentRoundIndex, openingBalance],
+    () => reserveByMonth[currentRoundIndex - 1] ?? openingBalance,
+    [reserveByMonth, currentRoundIndex, openingBalance],
   );
 
   return (
@@ -845,14 +868,13 @@ export default function TablePage() {
             const monthArrayIndex = tableIndex - 1;
             const totalExpenseThisMonth = expenseByMonth[monthArrayIndex] ?? 0;
             const roundStartingBalance = roundStartingByMonth[monthArrayIndex] ?? openingBalance;
-            const monthIncome = resolveMonthlyIncomeByMonth(monthlyIncome, monthlyIncomeByMonth, tableIndex);
             const isCustomMonthIncome = isCustomMonthlyIncomeByMonth(monthlyIncomeByMonth, tableIndex);
             let runningRowBalance = roundStartingBalance;
             const displayRowsWithBalance: MonthDisplayRow[] = map(displayRows, (row) => {
               runningRowBalance = runningRowBalance + row.compensation - row.expense;
               return { ...row, balanceAfter: runningRowBalance };
             });
-            const remainingThisMonth = monthEndingByMonth[monthArrayIndex] ?? roundStartingBalance;
+            const remainingThisMonth = reserveByMonth[monthArrayIndex] ?? roundStartingBalance;
             return (
               <section key={tableIndex} className={styles.tableCard}>
                 <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" className={styles.tableHeadingRow}>
@@ -888,7 +910,7 @@ export default function TablePage() {
                         className={styles.monthRemainingValue}
                         sx={{ color: isCustomMonthIncome ? '#086F3A' : '#38679a' }}
                       >
-                        {formatNumber(monthIncome)} THB
+                        {formatNumber(roundStartingBalance)} THB
                       </Typography>
                     </Box>
                     <Box className={styles.monthExpenseSummary}>
@@ -1008,8 +1030,7 @@ export default function TablePage() {
                 const monthArrayIndex = tableIndex - 1;
                 const totalExpenseThisMonth = expenseByMonth[monthArrayIndex] ?? 0;
                 const roundStartingBalance = roundStartingByMonth[monthArrayIndex] ?? openingBalance;
-                const monthIncome = resolveMonthlyIncomeByMonth(monthlyIncome, monthlyIncomeByMonth, tableIndex);
-                const remainingThisMonth = monthEndingByMonth[monthArrayIndex] ?? roundStartingBalance;
+                const remainingThisMonth = reserveByMonth[monthArrayIndex] ?? roundStartingBalance;
                 const isCustomMonthIncome = isCustomMonthlyIncomeByMonth(monthlyIncomeByMonth, tableIndex);
                 let runningRowBalance = roundStartingBalance;
                 const displayRowsWithBalance: MonthDisplayRow[] = map(displayRows, (row) => {
@@ -1032,7 +1053,7 @@ export default function TablePage() {
                       <Box className={styles.monthSummaryGroup}>
                         <Box className={`${styles.monthRemaining} ${isCustomMonthIncome ? styles.monthRemainingCustom : ''}`}>
                           <Typography className={styles.monthRemainingLabel}>ยอดตั้งต้นรอบนี้</Typography>
-                          <Typography className={styles.monthRemainingValue}>{formatNumber(monthIncome)} THB</Typography>
+                          <Typography className={styles.monthRemainingValue}>{formatNumber(roundStartingBalance)} THB</Typography>
                         </Box>
                         <Box className={styles.monthExpenseSummary}>
                           <Typography className={styles.monthExpenseLabel}>สรุปค่าใช้จ่าย</Typography>

@@ -24,7 +24,7 @@ import { getCurrentRoundIndex, getMonthInputValue, getRoundIndexFromDate, getRou
 import { BudgetSnapshot, BudgetRow, DEFAULT_BUDGET_SNAPSHOT, RowStatus } from '@/lib/budgetState';
 import { ensureUniqueDetail } from '@/lib/detailName';
 import { readBudgetSnapshot, writeBudgetSnapshot } from '@/lib/indexedDbBudget';
-import { useEffectiveCurrentDate } from '@/lib/testingDate';
+import { useCurrentDate } from '@/lib/currentDate';
 import styles from './page.module.css';
 
 type PlanItem = {
@@ -101,7 +101,7 @@ function getRowEndMonth(row: BudgetRow): number {
 export default function PlanPage() {
   const theme = useTheme();
   const isMobileView = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
-  const currentDate = useEffectiveCurrentDate();
+  const currentDate = useCurrentDate();
   const currentMonthValue = useMemo(() => getMonthInputValue(currentDate), [currentDate]);
   const [snapshot, setSnapshot] = useState<BudgetSnapshot>(DEFAULT_BUDGET_SNAPSHOT);
   const [itemName, setItemName] = useState('');

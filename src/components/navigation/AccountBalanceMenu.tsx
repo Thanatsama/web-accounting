@@ -16,18 +16,13 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
-import { getCurrentRoundIndex, getMonthInputValue } from "@/lib/budgetCalendar";
+import { getCurrentRoundIndex } from "@/lib/budgetCalendar";
 import {
-  BudgetRow,
   BudgetSnapshot,
   DEFAULT_BUDGET_SNAPSHOT,
 } from "@/lib/budgetState";
 import { readBudgetSnapshot, updateBudgetSnapshot, writeBudgetSnapshot } from "@/lib/indexedDbBudget";
-import {
-  readTestMonthValue,
-  setTestMonthValue,
-  useEffectiveCurrentDate,
-} from "@/lib/testingDate";
+import { useCurrentDate } from "@/lib/currentDate";
 
 function formatTHB(value: number): string {
   return new Intl.NumberFormat("th-TH", {
@@ -79,24 +74,6 @@ function isBudgetSnapshot(value: unknown): value is BudgetSnapshot {
   );
 }
 
-function getRowStartMonth(row: BudgetRow): number {
-  return Math.max(1, Math.floor(row.startMonth ?? 1));
-}
-
-function getRowEndMonth(row: BudgetRow): number {
-  return getRowStartMonth(row) + Math.max(1, Math.floor(row.spreadMonths)) - 1;
-}
-
-function resolveExpenseByMonth(row: BudgetRow, tableIndex: number): number {
-  const monthKey = String(tableIndex);
-  return row.expenseByMonth?.[monthKey] ?? row.expense;
-}
-
-function resolveCompensationByMonth(row: BudgetRow, tableIndex: number): number {
-  const monthKey = String(tableIndex);
-  return row.compensationByMonth?.[monthKey] ?? row.compensation;
-}
-
 function resolveMonthlyIncomeByMonth(
   monthlyIncome: number,
   monthlyIncomeByMonth: Record<string, number> | undefined,
@@ -121,25 +98,6 @@ function resolveAccountBalanceByMonth(
   return monthValue;
 }
 
-function buildDisplayRows(rows: BudgetRow[], tableIndex: number): Array<{ expense: number; compensation: number }> {
-  const result: Array<{ expense: number; compensation: number }> = [];
-
-  for (let i = 0; i < rows.length; i += 1) {
-    const row = rows[i];
-    if (row.isCancelled) continue;
-    const startMonth = getRowStartMonth(row);
-    const endMonth = getRowEndMonth(row);
-    if (tableIndex >= startMonth && tableIndex <= endMonth) {
-      result.push({
-        expense: resolveExpenseByMonth(row, tableIndex),
-        compensation: resolveCompensationByMonth(row, tableIndex),
-      });
-    }
-  }
-
-  return result;
-}
-
 export default function AccountBalanceMenu() {
   const theme = useTheme();
   const isMobileView = useMediaQuery(theme.breakpoints.down("sm"), { noSsr: true });
@@ -148,10 +106,9 @@ export default function AccountBalanceMenu() {
   const [isEditing, setIsEditing] = useState(false);
   const [draftBalance, setDraftBalance] = useState("0");
   const [draftMonthlyIncome, setDraftMonthlyIncome] = useState("0");
-  const [testMonthValue, setTestMonthValueState] = useState<string>("");
   const [restoreError, setRestoreError] = useState<string>("");
   const restoreInputRef = useRef<HTMLInputElement | null>(null);
-  const currentDate = useEffectiveCurrentDate();
+  const currentDate = useCurrentDate();
 
   const isOpen = Boolean(anchorEl);
   const currentRoundIndex = useMemo(
@@ -161,7 +118,6 @@ export default function AccountBalanceMenu() {
 
   const roundStartingByMonth = useMemo(() => {
     const starts: number[] = [];
-    const endings: number[] = [];
 
     for (let i = 0; i < Math.max(snapshot.totalTables, 1); i += 1) {
       const tableIndex = i + 1;
@@ -170,10 +126,7 @@ export default function AccountBalanceMenu() {
         snapshot.monthlyIncomeByMonth,
         tableIndex,
       );
-      const fallbackStartBalance =
-        i === 0
-          ? snapshot.accountBalance
-          : (endings[i - 1] ?? snapshot.accountBalance) + monthIncome;
+      const fallbackStartBalance = i === 0 ? snapshot.accountBalance : monthIncome;
       const overriddenStartBalance = resolveAccountBalanceByMonth(
         snapshot.accountBalance,
         snapshot.accountBalanceByMonth,
@@ -181,13 +134,6 @@ export default function AccountBalanceMenu() {
       );
       const startBalance = overriddenStartBalance ?? fallbackStartBalance;
       starts.push(startBalance);
-
-      const displayRows = buildDisplayRows(snapshot.rows, tableIndex);
-      const endBalance = displayRows.reduce(
-        (running, row) => running + row.compensation - row.expense,
-        startBalance,
-      );
-      endings.push(endBalance);
     }
 
     return starts;
@@ -197,7 +143,6 @@ export default function AccountBalanceMenu() {
     snapshot.accountBalanceByMonth,
     snapshot.monthlyIncome,
     snapshot.monthlyIncomeByMonth,
-    snapshot.rows,
   ]);
 
   const currentRoundBalance =
@@ -216,7 +161,6 @@ export default function AccountBalanceMenu() {
       setSnapshot(nextSnapshot);
       setDraftBalance(String(nextSnapshot.accountBalance));
       setDraftMonthlyIncome(String(nextSnapshot.monthlyIncome));
-      setTestMonthValueState(readTestMonthValue() ?? "");
     };
 
     void hydrate();
@@ -226,7 +170,6 @@ export default function AccountBalanceMenu() {
   }, []);
 
   const openPopover = (event: React.MouseEvent<HTMLElement>) => {
-    setTestMonthValueState(readTestMonthValue() ?? "");
     setAnchorEl(event.currentTarget);
   };
 
@@ -250,7 +193,23 @@ export default function AccountBalanceMenu() {
       if (nextBalance === null || nextMonthlyIncome === null) return;
 
       const nextSnapshot = await updateBudgetSnapshot((current) => {
-        const currentRound = getCurrentRoundIndex(Math.max(current.totalTables, 1));
+        const currentRound = getCurrentRoundIndex(
+          Math.max(current.totalTables, 1),
+          currentDate,
+        );
+        const nextMonthlyIncomeByMonth = {
+          ...(current.monthlyIncomeByMonth ?? {}),
+        };
+
+        // Preserve the effective income of closed rounds before changing the default.
+        for (let tableIndex = 1; tableIndex < currentRound; tableIndex += 1) {
+          const monthKey = String(tableIndex);
+          const savedValue = nextMonthlyIncomeByMonth[monthKey];
+          if (typeof savedValue !== "number" || !Number.isFinite(savedValue)) {
+            nextMonthlyIncomeByMonth[monthKey] = current.monthlyIncome;
+          }
+        }
+
         return {
           ...current,
           accountBalance: currentRound === 1 ? nextBalance : current.accountBalance,
@@ -259,6 +218,7 @@ export default function AccountBalanceMenu() {
             [String(currentRound)]: nextBalance,
           },
           monthlyIncome: nextMonthlyIncome,
+          monthlyIncomeByMonth: nextMonthlyIncomeByMonth,
           totalTables: Math.max(1, current.totalTables),
           updatedAt: Date.now(),
         };
@@ -323,16 +283,6 @@ export default function AccountBalanceMenu() {
   const openRestorePicker = () => {
     setRestoreError("");
     restoreInputRef.current?.click();
-  };
-
-  const saveTestMonth = () => {
-    const normalized = testMonthValue.trim();
-    setTestMonthValue(normalized ? normalized : null);
-  };
-
-  const resetTestMonth = () => {
-    setTestMonthValueState("");
-    setTestMonthValue(null);
   };
 
   return (
@@ -441,31 +391,6 @@ export default function AccountBalanceMenu() {
                 </Button>
               </Stack>
             </Stack>
-          )}
-
-          {!isMobileView && (
-            <Box sx={{ mt: 1.8, pt: 1.2, borderTop: "1px solid rgba(0,0,0,0.08)" }}>
-              <Typography variant="body2" sx={{ color: "text.secondary", mb: 0.8 }}>
-                Test Current Month
-              </Typography>
-              <Stack spacing={1}>
-                <TextField
-                  size="small"
-                  type="month"
-                  value={testMonthValue}
-                  onChange={(event) => setTestMonthValueState(event.target.value)}
-                  slotProps={{ htmlInput: { min: getMonthInputValue(new Date(2026, 2, 1)) } }}
-                />
-                <Stack direction="row" spacing={1} justifyContent="flex-end">
-                  <Button size="small" onClick={resetTestMonth}>
-                    Reset
-                  </Button>
-                  <Button size="small" variant="contained" onClick={saveTestMonth}>
-                    Apply
-                  </Button>
-                </Stack>
-              </Stack>
-            </Box>
           )}
 
           {!isMobileView && (

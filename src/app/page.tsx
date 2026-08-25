@@ -6,11 +6,11 @@ import map from 'lodash/map';
 import { Box, Button, Chip, Container, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField, Typography } from '@mui/material';
 import { getStatusChipSx } from '@/components/shared/statusChip';
 import MarketingLayout from '@/components/layout/MarketingLayout';
-import { getCurrentRoundIndex, getRoundLabel } from '@/lib/budgetCalendar';
+import { getCurrentRoundIndex, getRoundLabel, RESERVE_SYSTEM_START_ROUND } from '@/lib/budgetCalendar';
 import { BudgetRow, BudgetSnapshot, CardType, DEFAULT_BUDGET_SNAPSHOT, HomeExpense } from '@/lib/budgetState';
 import { getCardIcon, getCardLabel } from '@/lib/cardBrand';
 import { readBudgetSnapshot, updateBudgetSnapshot } from '@/lib/indexedDbBudget';
-import { useEffectiveCurrentDate } from '@/lib/testingDate';
+import { useCurrentDate } from '@/lib/currentDate';
 import styles from './page.module.css';
 
 type RoundRow = {
@@ -127,7 +127,7 @@ export default function Home() {
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
   const [expenseDetail, setExpenseDetail] = useState('');
   const [expenseAmount, setExpenseAmount] = useState('0');
-  const currentDate = useEffectiveCurrentDate();
+  const currentDate = useCurrentDate();
 
   useEffect(() => {
     let mounted = true;
@@ -157,8 +157,7 @@ export default function Home() {
     for (let i = 0; i < tableIndexes.length; i += 1) {
       const tableIndex = i + 1;
       const monthIncome = resolveMonthlyIncomeByMonth(snapshot.monthlyIncome, snapshot.monthlyIncomeByMonth, tableIndex);
-      const fallbackStartBalance =
-        i === 0 ? snapshot.accountBalance : (endings[i - 1] ?? snapshot.accountBalance) + monthIncome;
+      const fallbackStartBalance = i === 0 ? snapshot.accountBalance : monthIncome;
       const overriddenStartBalance = resolveAccountBalanceByMonth(
         snapshot.accountBalance,
         snapshot.accountBalanceByMonth,
@@ -184,20 +183,15 @@ export default function Home() {
   const roundStartingByMonth = useMemo(() => {
     const starts: number[] = [];
     for (let i = 0; i < tableIndexes.length; i += 1) {
-      if (i === 0) {
-        starts.push(snapshot.accountBalance);
-      } else {
-        const prevEnding = monthEndingByMonth[i - 1] ?? snapshot.accountBalance;
-        const tableIndex = i + 1;
-        const monthIncome = resolveMonthlyIncomeByMonth(snapshot.monthlyIncome, snapshot.monthlyIncomeByMonth, tableIndex);
-        const fallbackStartBalance = prevEnding + monthIncome;
-        const overriddenStartBalance = resolveAccountBalanceByMonth(
-          snapshot.accountBalance,
-          snapshot.accountBalanceByMonth,
-          tableIndex,
-        );
-        starts.push(overriddenStartBalance ?? fallbackStartBalance);
-      }
+      const tableIndex = i + 1;
+      const monthIncome = resolveMonthlyIncomeByMonth(snapshot.monthlyIncome, snapshot.monthlyIncomeByMonth, tableIndex);
+      const fallbackStartBalance = i === 0 ? snapshot.accountBalance : monthIncome;
+      const overriddenStartBalance = resolveAccountBalanceByMonth(
+        snapshot.accountBalance,
+        snapshot.accountBalanceByMonth,
+        tableIndex,
+      );
+      starts.push(overriddenStartBalance ?? fallbackStartBalance);
     }
     return starts;
   }, [
@@ -206,8 +200,29 @@ export default function Home() {
     snapshot.accountBalanceByMonth,
     snapshot.monthlyIncome,
     snapshot.monthlyIncomeByMonth,
-    monthEndingByMonth,
   ]);
+
+  const reserveByMonth = useMemo(() => {
+    return tableIndexes.reduce<number[]>((reserves, tableIndex, monthArrayIndex) => {
+      const outsideTableExpense = (snapshot.homeExpensesByMonth?.[String(tableIndex)] ?? []).reduce(
+        (sum, item) => sum + item.amount,
+        0,
+      );
+      const withinMonthRemaining =
+        (monthEndingByMonth[monthArrayIndex] ?? roundStartingByMonth[monthArrayIndex] ?? 0) -
+        outsideTableExpense;
+
+      if (tableIndex < RESERVE_SYSTEM_START_ROUND) {
+        return [...reserves, withinMonthRemaining];
+      }
+      if (tableIndex === RESERVE_SYSTEM_START_ROUND) {
+        return [...reserves, 0];
+      }
+
+      const previousReserve = reserves[monthArrayIndex - 1] ?? 0;
+      return [...reserves, previousReserve + withinMonthRemaining];
+    }, []);
+  }, [tableIndexes, snapshot.homeExpensesByMonth, monthEndingByMonth, roundStartingByMonth]);
 
   const currentRows = useMemo(() => buildRoundRows(snapshot.rows, currentRoundIndex), [snapshot.rows, currentRoundIndex]);
   const currentHomeExpenses = useMemo(
@@ -221,20 +236,7 @@ export default function Home() {
   );
   const totalExpense = tableExpense + extraExpense;
   const monthStarting = roundStartingByMonth[currentRoundIndex - 1] ?? snapshot.accountBalance;
-  const currentRowsWithBalance = useMemo(
-    () =>
-      currentRows.reduce<Array<RoundRow & { balanceAfter: number }>>((acc, row) => {
-        const prevBalance = acc.length > 0 ? acc[acc.length - 1].balanceAfter : monthStarting;
-        const nextBalance = prevBalance + row.compensation - row.expense;
-        return [...acc, { ...row, balanceAfter: nextBalance }];
-      }, []),
-    [currentRows, monthStarting],
-  );
-  const monthRemaining =
-    (monthEndingByMonth[currentRoundIndex - 1] ?? 
-    (currentRowsWithBalance.length > 0
-      ? currentRowsWithBalance[currentRowsWithBalance.length - 1].balanceAfter
-      : monthStarting)) - extraExpense;
+  const monthRemaining = reserveByMonth[currentRoundIndex - 1] ?? monthStarting;
   const pendingRows = currentRows.filter((row) => row.status === 'PENDING');
 
   const closeAddExpenseDialog = () => {

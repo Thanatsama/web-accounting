@@ -29,6 +29,8 @@ export function getRoundIndexFromDate(date: Date): number {
   return Math.max(diffMonths + 1, 1);
 }
 
+export const RESERVE_SYSTEM_START_ROUND = getRoundIndexFromDate(new Date(2026, 7, 1));
+
 export function getRoundLabel(roundIndex: number): string {
   const date = new Date(BASE_YEAR, BASE_MONTH_INDEX + (roundIndex - 1), 1);
   const monthName = THAI_MONTHS[date.getMonth()] ?? "";
