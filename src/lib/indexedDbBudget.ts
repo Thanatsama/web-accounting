@@ -1,5 +1,6 @@
 import { readBudgetFromServer, writeBudgetToServer } from "@/lib/budgetApi";
 import { BudgetSnapshot, DEFAULT_BUDGET_SNAPSHOT, HomeExpense } from "@/lib/budgetState";
+import { expandRecurringHomeExpenses } from "@/lib/homeExpenseRecurrence";
 
 function asNumber(value: unknown, fallback: number): number {
   const parsed = Number(value);
@@ -44,6 +45,15 @@ function normalizeSnapshot(value: unknown): BudgetSnapshot {
                       id: asNumber(candidateItem.id, Date.now()),
                       detail: typeof candidateItem.detail === "string" ? candidateItem.detail : "",
                       amount: asNumber(candidateItem.amount, 0),
+                      status: candidateItem.status === "PAID" ? "PAID" : "PENDING",
+                      ...(candidateItem.status === "PAID" && Number.isFinite(Number(candidateItem.paidAt))
+                        ? { paidAt: asNumber(candidateItem.paidAt, Date.now()) }
+                        : {}),
+                      ...(candidateItem.isRecurring === true ? { isRecurring: true } : {}),
+                      ...(Number.isFinite(Number(candidateItem.recurringGroupId))
+                        ? { recurringGroupId: asNumber(candidateItem.recurringGroupId, 0) }
+                        : {}),
+                      ...(candidateItem.isCancelled === true ? { isCancelled: true } : {}),
                     };
                   })
                   .filter((item): item is HomeExpense => item !== null)
@@ -52,13 +62,15 @@ function normalizeSnapshot(value: unknown): BudgetSnapshot {
         )
       : {};
 
+  const totalTables = Math.max(1, Math.floor(asNumber(candidate.totalTables, 1)));
+
   return {
     accountBalance: asNumber(candidate.accountBalance, 0),
     accountBalanceByMonth,
     monthlyIncome: asNumber(candidate.monthlyIncome, 0),
     monthlyIncomeByMonth,
-    homeExpensesByMonth,
-    totalTables: Math.max(1, Math.floor(asNumber(candidate.totalTables, 1))),
+    homeExpensesByMonth: expandRecurringHomeExpenses(homeExpensesByMonth, totalTables),
+    totalTables,
     rows: Array.isArray(candidate.rows) ? candidate.rows : [],
     updatedAt: asNumber(candidate.updatedAt, 0),
   };

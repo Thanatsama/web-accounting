@@ -340,48 +340,6 @@
   color: #794804;
 }
 
-.archiveExtraExpenseSection {
-  margin-top: 0.8rem;
-  border-top: 1px dashed rgba(42, 55, 79, 0.14);
-  padding-top: 0.8rem;
-}
-
-.archiveExtraExpenseTitle {
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: #2b364a;
-  margin-bottom: 0.55rem;
-}
-
-.archiveExtraExpenseEmpty {
-  font-size: 0.8rem;
-  color: #6e7787;
-}
-
-.archiveExtraExpenseRow {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  border-radius: 12px;
-  padding: 0.5rem 0.7rem;
-  background: #fbfcff;
-  border: 1px solid rgba(30, 44, 69, 0.08);
-}
-
-.archiveExtraExpenseLabel {
-  font-size: 0.83rem;
-  font-weight: 600;
-  color: #263043;
-}
-
-.archiveExtraExpenseValue {
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: #7a4d06;
-  white-space: nowrap;
-}
-
 .mobileReadonlyHint {
   margin-top: -0.3rem;
   margin-bottom: 0.65rem;

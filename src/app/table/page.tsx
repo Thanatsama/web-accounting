@@ -438,6 +438,7 @@ export default function TablePage() {
       accountBalanceByMonth,
       monthlyIncome,
       monthlyIncomeByMonth,
+      homeExpensesByMonth,
       totalTables: Math.max(1, nextTotalTables),
       rows: nextRows,
       updatedAt,
@@ -758,7 +759,7 @@ export default function TablePage() {
   const reserveByMonth = useMemo(() => {
     return tableIndexes.reduce<number[]>((reserves, tableIndex, monthArrayIndex) => {
       const outsideTableExpense = (homeExpensesByMonth[String(tableIndex)] ?? []).reduce(
-        (sum, item) => sum + item.amount,
+        (sum, item) => sum + (item.isCancelled ? 0 : item.amount),
         0,
       );
       const withinMonthRemaining =
@@ -769,7 +770,7 @@ export default function TablePage() {
         return [...reserves, withinMonthRemaining];
       }
       if (tableIndex === RESERVE_SYSTEM_START_ROUND) {
-        return [...reserves, 0];
+        return [...reserves, -outsideTableExpense];
       }
 
       const previousReserve = reserves[monthArrayIndex - 1] ?? 0;
@@ -1026,7 +1027,6 @@ export default function TablePage() {
               {archivedTableIndexes.length === 0 && <Typography color="text.secondary">ยังไม่มีเดือนที่ผ่านมา</Typography>}
               {map(archivedTableIndexes, (tableIndex) => {
                 const displayRows = buildDisplayRows(rows, tableIndex);
-                const archiveHomeExpenses = homeExpensesByMonth[String(tableIndex)] ?? [];
                 const monthArrayIndex = tableIndex - 1;
                 const totalExpenseThisMonth = expenseByMonth[monthArrayIndex] ?? 0;
                 const roundStartingBalance = roundStartingByMonth[monthArrayIndex] ?? openingBalance;
@@ -1066,26 +1066,6 @@ export default function TablePage() {
                       </Box>
                     </Stack>
                     <DesktopRowsTable rows={displayRowsWithBalance} readonly formatNumber={formatNumber} />
-                    <Box className={styles.archiveExtraExpenseSection}>
-                      <Typography className={styles.archiveExtraExpenseTitle}>รายจ่ายนอกตาราง</Typography>
-                      {archiveHomeExpenses.length === 0 && (
-                        <Typography className={styles.archiveExtraExpenseEmpty}>ไม่มีรายการ</Typography>
-                      )}
-                      {archiveHomeExpenses.length > 0 && (
-                        <Stack spacing={0.55}>
-                          {map(archiveHomeExpenses, (item, index) => (
-                            <Box key={`archive-expense-${tableIndex}-${item.id}`} className={styles.archiveExtraExpenseRow}>
-                              <Typography className={styles.archiveExtraExpenseLabel}>
-                                {index + 1}. {item.detail}
-                              </Typography>
-                              <Typography className={styles.archiveExtraExpenseValue}>
-                                {formatNumber(item.amount)} THB
-                              </Typography>
-                            </Box>
-                          ))}
-                        </Stack>
-                      )}
-                    </Box>
                   </section>
                 );
               })}

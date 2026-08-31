@@ -41,6 +41,11 @@ export type HomeExpense = {
   id: number;
   detail: string;
   amount: number;
+  status: RowStatus;
+  paidAt?: number;
+  isRecurring?: boolean;
+  recurringGroupId?: number;
+  isCancelled?: boolean;
 };
 
 export type BudgetSnapshot = {
