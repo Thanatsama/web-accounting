@@ -321,6 +321,10 @@ export default function Home() {
     () => allHomeExpenses.filter((item) => item.status === 'PAID').sort((a, b) => (b.paidAt ?? b.id) - (a.paidAt ?? a.id)),
     [allHomeExpenses],
   );
+  const totalPendingHomeExpense = useMemo(
+    () => pendingHomeExpenses.reduce((sum, item) => sum + item.amount, 0),
+    [pendingHomeExpenses],
+  );
   const recurringGroups = useMemo(() => {
     const groups = new Map<number, RecurringGroupSummary>();
     allHomeExpenses.forEach((item) => {
@@ -775,6 +779,10 @@ export default function Home() {
             <Box>
               <Typography className={styles.pendingTitle}>รายจ่ายนอกตาราง</Typography>
               <Typography className={styles.extraExpenseSubtitle}>ค้างอยู่จนกว่าจะจ่าย · หักจากเงินสำรองเท่านั้น</Typography>
+              <Box className={styles.extraExpenseTotalBadge}>
+                ค้างจ่ายรวม {formatNumber(totalPendingHomeExpense)} THB
+                {pendingHomeExpenses.length > 0 ? ` · ${pendingHomeExpenses.length} รายการ` : ''}
+              </Box>
             </Box>
             <Box className={styles.extraExpenseHeaderActions}>
               <Button

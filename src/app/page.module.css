@@ -73,6 +73,33 @@
   font-size: 0.78rem;
 }
 
+.extraExpenseTotalBadge {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 0.45rem;
+  padding: 0.24rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #7b6020;
+  background: linear-gradient(135deg, #fff8de, #fff2c9);
+  border: 1px solid #f2e3a7;
+}
+
+.recurringExpenseBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.16rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #55606e;
+  background: rgba(85, 96, 110, 0.08);
+  border: 1px solid rgba(85, 96, 110, 0.2);
+}
+
 .pendingRow {
   display: flex;
   justify-content: space-between;
