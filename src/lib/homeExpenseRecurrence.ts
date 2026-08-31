@@ -8,7 +8,7 @@ export function expandRecurringHomeExpenses(
   const expanded = Object.fromEntries(
     map(Object.entries(expensesByMonth), ([monthKey, expenses]) => [monthKey, [...expenses]]),
   );
-  const templates = new Map<number, { startMonth: number; item: HomeExpense }>();
+  const templates = new Map<number, { startMonth: number; latestMonth: number; item: HomeExpense }>();
 
   for (const [monthKey, expenses] of Object.entries(expanded)) {
     const tableIndex = Number(monthKey);
@@ -17,9 +17,19 @@ export function expandRecurringHomeExpenses(
     for (const item of expenses) {
       if (!item.isRecurring || typeof item.recurringGroupId !== 'number') continue;
       const existing = templates.get(item.recurringGroupId);
-      if (!existing || tableIndex < existing.startMonth) {
-        templates.set(item.recurringGroupId, { startMonth: tableIndex, item });
+      if (!existing) {
+        templates.set(item.recurringGroupId, { startMonth: tableIndex, latestMonth: tableIndex, item });
+        continue;
       }
+      // The loop below still fills gaps starting from the earliest occurrence, but the
+      // detail/amount used to fill those gaps comes from the most recent occurrence so
+      // that an edit made "from this month onward" is honored once the table grows past
+      // the months that already exist in storage.
+      templates.set(item.recurringGroupId, {
+        startMonth: Math.min(existing.startMonth, tableIndex),
+        latestMonth: Math.max(existing.latestMonth, tableIndex),
+        item: tableIndex >= existing.latestMonth ? item : existing.item,
+      });
     }
   }
 
