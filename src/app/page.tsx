@@ -117,7 +117,8 @@ function resolveStatusByMonth(row: BudgetRow, tableIndex: number): 'PENDING' | '
 
 function resolveCardTypeByMonth(row: BudgetRow, tableIndex: number): CardType | undefined {
   const key = String(tableIndex);
-  return row.cardTypeByMonth?.[key] ?? row.cardType;
+  const monthCardType = row.cardTypeByMonth?.[key];
+  return monthCardType === null ? undefined : monthCardType ?? row.cardType;
 }
 
 function getMonthsBadgeClassName(monthsLeft: number): string {

@@ -116,7 +116,8 @@ function resolveStatusByMonth(row: BudgetRow, tableIndex: number): RowStatus {
 
 function resolveCardTypeByMonth(row: BudgetRow, tableIndex: number): CardType | undefined {
   const monthKey = String(tableIndex);
-  return row.cardTypeByMonth?.[monthKey] ?? row.cardType;
+  const monthCardType = row.cardTypeByMonth?.[monthKey];
+  return monthCardType === null ? undefined : monthCardType ?? row.cardType;
 }
 
 function resolveMonthlyIncomeByMonth(
@@ -207,8 +208,6 @@ function propagateCardTypeToMatchingRows(
   tableIndex: number,
   nextCardType: CardType | undefined,
 ): BudgetRow[] {
-  if (!nextCardType) return rows;
-
   const targetDetailKey = getDetailKey(targetDetail);
   if (!targetDetailKey) return rows;
 
@@ -217,6 +216,7 @@ function propagateCardTypeToMatchingRows(
     if (getDetailKey(row.detail) !== targetDetailKey) return row;
 
     if (!row.cardType) {
+      if (!nextCardType) return row;
       const nextCardTypeByMonth = { ...(row.cardTypeByMonth ?? {}) };
       delete nextCardTypeByMonth[String(tableIndex)];
       return {
@@ -233,7 +233,7 @@ function propagateCardTypeToMatchingRows(
       ...row,
       cardTypeByMonth: {
         ...(row.cardTypeByMonth ?? {}),
-        [monthKey]: nextCardType,
+        [monthKey]: nextCardType ?? null,
       },
     };
   });
@@ -479,6 +479,8 @@ export default function TablePage() {
           } else {
             nextCardTypeByMonth[monthKey] = monthPatch.cardType;
           }
+        } else if (row.cardType) {
+          nextCardTypeByMonth[monthKey] = monthPatch.cardType || null;
         } else {
           delete nextCardTypeByMonth[monthKey];
         }

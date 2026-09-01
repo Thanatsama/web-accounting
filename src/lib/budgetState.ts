@@ -22,7 +22,7 @@ export type BudgetRow = {
   source: string;
   sourceByMonth?: Record<string, string>;
   cardType?: CardType;
-  cardTypeByMonth?: Record<string, CardType>;
+  cardTypeByMonth?: Record<string, CardType | null>;
   status: RowStatus;
   statusByMonth?: Record<string, RowStatus>;
   isCancelled?: boolean;
