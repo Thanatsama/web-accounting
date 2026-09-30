@@ -46,6 +46,7 @@ export function expandRecurringHomeExpenses(
           id: groupId * 1000 + tableIndex,
           detail: template.item.detail,
           amount: template.item.amount,
+          ...(template.item.cardType ? { cardType: template.item.cardType } : {}),
           status: 'PENDING',
           isRecurring: true,
           recurringGroupId: groupId,

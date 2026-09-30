@@ -1,5 +1,5 @@
 import { readBudgetFromServer, writeBudgetToServer } from "@/lib/budgetApi";
-import { BudgetSnapshot, DEFAULT_BUDGET_SNAPSHOT, HomeExpense } from "@/lib/budgetState";
+import { BudgetSnapshot, CARD_TYPE_OPTIONS, DEFAULT_BUDGET_SNAPSHOT, HomeExpense } from "@/lib/budgetState";
 import { expandRecurringHomeExpenses } from "@/lib/homeExpenseRecurrence";
 
 function asNumber(value: unknown, fallback: number): number {
@@ -45,6 +45,9 @@ function normalizeSnapshot(value: unknown): BudgetSnapshot {
                       id: asNumber(candidateItem.id, Date.now()),
                       detail: typeof candidateItem.detail === "string" ? candidateItem.detail : "",
                       amount: asNumber(candidateItem.amount, 0),
+                      ...(CARD_TYPE_OPTIONS.some((option) => option.value === candidateItem.cardType)
+                        ? { cardType: candidateItem.cardType }
+                        : {}),
                       status: candidateItem.status === "PAID" ? "PAID" : "PENDING",
                       ...(candidateItem.status === "PAID" && Number.isFinite(Number(candidateItem.paidAt))
                         ? { paidAt: asNumber(candidateItem.paidAt, Date.now()) }

@@ -43,7 +43,7 @@ export default function DesktopRowsTable({ rows, readonly = false, onRowClick, f
               <td>{row.itemNo}</td>
               <td>{row.detail}</td>
               <td>{formatNumber(row.expense)}</td>
-              <td>{row.monthsLeft}</td>
+              <td>{row.monthsLeft ?? '-'}</td>
               <td>{formatNumber(row.compensation)}</td>
               <td>{row.source || '-'}</td>
               <td>
@@ -55,6 +55,7 @@ export default function DesktopRowsTable({ rows, readonly = false, onRowClick, f
                       alt={getCardLabel(row.cardType)}
                       width={16}
                       height={16}
+                      style={row.cardType === 'TTB' ? { width: 12, height: 6, borderRadius: 0 } : undefined}
                     />
                     <span>{getCardLabel(row.cardType)}</span>
                   </span>

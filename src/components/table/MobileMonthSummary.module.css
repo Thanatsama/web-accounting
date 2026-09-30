@@ -51,8 +51,7 @@
 }
 
 .mobileCardIcon {
-  border-radius: 50%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .mobileMonthsBadge {

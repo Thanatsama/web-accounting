@@ -56,6 +56,5 @@
 .cardIconImage {
   width: 16px;
   height: 16px;
-  border-radius: 50%;
-  object-fit: cover;
+  object-fit: contain;
 }

@@ -5,8 +5,8 @@ export type MonthDisplayRow = {
   itemNo: number;
   detail: string;
   expense: number;
-  monthsLeft: number;
-  totalMonths: number;
+  monthsLeft: number | null;
+  totalMonths: number | null;
   compensation: number;
   source: string;
   cardType?: CardType;

@@ -93,8 +93,9 @@ function roundToMonthValue(roundIndex: number): string {
   return getMonthInputValue(date);
 }
 
-function getRowEndMonth(row: BudgetRow): number {
+function getRowEndMonth(row: BudgetRow, throughMonth = 1): number {
   const start = Math.max(1, Math.floor(row.startMonth ?? 1));
+  if (row.spreadMonths === null) return Math.max(start, throughMonth);
   return start + Math.max(1, Math.floor(row.spreadMonths)) - 1;
 }
 
@@ -360,7 +361,7 @@ export default function PlanPage() {
     setEditingOriginalPrice(String(originalPrice));
     setEditingDiscountPercent(String(discountPercent));
     setEditingUpfront(String(upfront));
-    setEditingTerm(Math.max(1, target.spreadMonths));
+    setEditingTerm(Math.max(1, target.spreadMonths ?? target.planMeta?.termMonths ?? 1));
     setEditingStartMonth(roundToMonthValue(start));
     setEditingStatus(target.status);
     setIsEditOpen(true);
@@ -432,7 +433,7 @@ export default function PlanPage() {
     });
 
     const nextTotalTables = updatedRows.reduce(
-      (maxMonth, row) => Math.max(maxMonth, getRowEndMonth(row)),
+      (maxMonth, row) => Math.max(maxMonth, getRowEndMonth(row, snapshot.totalTables)),
       1,
     );
 

@@ -25,12 +25,11 @@ import ArchiveRoundedIcon from '@mui/icons-material/ArchiveRounded';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
-import EventRepeatRoundedIcon from '@mui/icons-material/EventRepeatRounded';
 import { getStatusChipSx } from '@/components/shared/statusChip';
 import MarketingLayout from '@/components/layout/MarketingLayout';
 import { getCurrentRoundIndex, getRoundLabel, RESERVE_SYSTEM_START_ROUND } from '@/lib/budgetCalendar';
 import { BudgetRow, BudgetSnapshot, CardType, DEFAULT_BUDGET_SNAPSHOT, HomeExpense, RowStatus } from '@/lib/budgetState';
-import { getCardIcon, getCardLabel } from '@/lib/cardBrand';
+import { CARD_TYPE_SELECT_OPTIONS, CardTypeInput, getCardIcon, getCardLabel } from '@/lib/cardBrand';
 import { readBudgetSnapshot, updateBudgetSnapshot } from '@/lib/indexedDbBudget';
 import { useCurrentDate } from '@/lib/currentDate';
 import styles from './page.module.css';
@@ -39,28 +38,53 @@ type RoundRow = {
   id: number;
   itemNo: number;
   detail: string;
-  monthsLeft: number;
-  totalMonths: number;
+  monthsLeft: number | null;
+  totalMonths: number | null;
   expense: number;
   compensation: number;
   source: string;
   cardType?: CardType;
   status: 'PENDING' | 'PAID';
+  isOutstanding?: boolean;
 };
 
 type HomeExpenseWithMonth = HomeExpense & {
   tableIndex: number;
 };
 
-type RecurringGroupSummary = {
-  groupId: number;
-  detail: string;
-  amount: number;
-  earliestMonth: number;
-  latestMonth: number;
-  pendingFromCurrentCount: number;
-  nextActiveMonth: number | null;
-};
+function ExpenseCardIcon({ cardType }: { cardType?: CardType }) {
+  if (!cardType) return null;
+  return (
+    <Image
+      src={getCardIcon(cardType) ?? ''}
+      alt={getCardLabel(cardType)}
+      title={getCardLabel(cardType)}
+      width={24}
+      height={16}
+      style={cardType === 'TTB' ? { width: 18, height: 9, borderRadius: 0 } : undefined}
+      className={styles.expenseCardIcon}
+    />
+  );
+}
+
+function ExpenseCardSelect({ value, onChange }: { value: CardTypeInput; onChange: (value: CardTypeInput) => void }) {
+  return (
+    <TextField
+      size="small"
+      select
+      label="ประเภทบัตร"
+      value={value}
+      onChange={(event) => onChange(event.target.value as CardTypeInput)}
+      fullWidth
+    >
+      {map(CARD_TYPE_SELECT_OPTIONS, (option) => (
+        <MenuItem key={option.value} value={option.value}>
+          {option.label}
+        </MenuItem>
+      ))}
+    </TextField>
+  );
+}
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat('th-TH', {
@@ -70,7 +94,7 @@ function formatNumber(value: number): string {
 }
 
 // Shared look for the "primary save" contained buttons inside the off-table-expense
-// dialogs (Add / Edit / Edit recurring), so they match the green "เพิ่มรายจ่าย" button
+// dialogs (Add / Edit), so they match the green "เพิ่มรายจ่าย" button
 // instead of MUI's default (blue) primary color.
 const primaryGreenButtonSx = {
   color: '#ffffff',
@@ -121,7 +145,8 @@ function resolveCardTypeByMonth(row: BudgetRow, tableIndex: number): CardType | 
   return monthCardType === null ? undefined : monthCardType ?? row.cardType;
 }
 
-function getMonthsBadgeClassName(monthsLeft: number): string {
+function getMonthsBadgeClassName(monthsLeft: number | null): string {
+  if (monthsLeft === null) return styles.pendingMonthsBadgeBlue;
   if (monthsLeft <= 1) return styles.pendingMonthsBadgeGreen;
   if (monthsLeft <= 5) return styles.pendingMonthsBadgeYellow;
   return styles.pendingMonthsBadgeBlue;
@@ -131,7 +156,8 @@ function getRowStartMonth(row: BudgetRow): number {
   return Math.max(1, Math.floor(row.startMonth ?? 1));
 }
 
-function getRowEndMonth(row: BudgetRow): number {
+function getRowEndMonth(row: BudgetRow, throughMonth = getRowStartMonth(row)): number {
+  if (row.spreadMonths === null) return Math.max(getRowStartMonth(row), throughMonth);
   return getRowStartMonth(row) + Math.max(1, Math.floor(row.spreadMonths)) - 1;
 }
 
@@ -163,21 +189,22 @@ function buildRoundRows(rows: BudgetRow[], roundIndex: number): RoundRow[] {
   const activeRows = rows.filter((row) => {
     if (row.isCancelled) return false;
     const start = getRowStartMonth(row);
-    const end = getRowEndMonth(row);
+    const end = getRowEndMonth(row, roundIndex);
     return roundIndex >= start && roundIndex <= end;
   });
-  const sortedRows = [...activeRows].sort((a, b) => a.spreadMonths - b.spreadMonths);
+  const sortedRows = [...activeRows].sort((a, b) => (a.spreadMonths ?? Infinity) - (b.spreadMonths ?? Infinity));
   return map(sortedRows, (row, index) => ({
     id: row.id,
     itemNo: index + 1,
     detail: row.detail,
-    monthsLeft: getRowEndMonth(row) - roundIndex + 1,
-    totalMonths: Math.max(1, Math.floor(row.spreadMonths)),
+    monthsLeft: row.spreadMonths === null ? null : getRowEndMonth(row) - roundIndex + 1,
+    totalMonths: row.spreadMonths === null ? null : Math.max(1, Math.floor(row.spreadMonths)),
     expense: resolveExpenseByMonth(row, roundIndex),
     compensation: resolveCompensationByMonth(row, roundIndex),
     source: resolveSourceByMonth(row, roundIndex),
     cardType: resolveCardTypeByMonth(row, roundIndex),
     status: resolveStatusByMonth(row, roundIndex),
+    isOutstanding: row.isOutstanding,
   }));
 }
 
@@ -187,21 +214,18 @@ export default function Home() {
   const [isExpenseArchiveOpen, setIsExpenseArchiveOpen] = useState(false);
   const [expenseDetail, setExpenseDetail] = useState('');
   const [expenseAmount, setExpenseAmount] = useState('0');
+  const [expenseCardType, setExpenseCardType] = useState<CardTypeInput>('');
   const [isRecurringExpense, setIsRecurringExpense] = useState(false);
   const [editingArchivedExpense, setEditingArchivedExpense] = useState<HomeExpenseWithMonth | null>(null);
   const [editExpenseDetail, setEditExpenseDetail] = useState('');
   const [editExpenseAmount, setEditExpenseAmount] = useState('0');
+  const [editExpenseCardType, setEditExpenseCardType] = useState<CardTypeInput>('');
   const [editExpenseStatus, setEditExpenseStatus] = useState<RowStatus>('PAID');
   const [editingPendingExpense, setEditingPendingExpense] = useState<HomeExpenseWithMonth | null>(null);
   const [editPendingDetail, setEditPendingDetail] = useState('');
   const [editPendingAmount, setEditPendingAmount] = useState('0');
+  const [editPendingCardType, setEditPendingCardType] = useState<CardTypeInput>('');
   const [editPendingScope, setEditPendingScope] = useState<'this' | 'future'>('this');
-  const [isRecurringManagerOpen, setIsRecurringManagerOpen] = useState(false);
-  const [editingRecurringGroupId, setEditingRecurringGroupId] = useState<number | null>(null);
-  const [editRecurringDetail, setEditRecurringDetail] = useState('');
-  const [editRecurringAmount, setEditRecurringAmount] = useState('0');
-  const [editRecurringStartMonth, setEditRecurringStartMonth] = useState(1);
-  const [deletingRecurringGroup, setDeletingRecurringGroup] = useState<RecurringGroupSummary | null>(null);
   const currentDate = useCurrentDate();
 
   useEffect(() => {
@@ -326,55 +350,16 @@ export default function Home() {
     () => pendingHomeExpenses.reduce((sum, item) => sum + item.amount, 0),
     [pendingHomeExpenses],
   );
-  const recurringGroups = useMemo(() => {
-    const groups = new Map<number, RecurringGroupSummary>();
-    allHomeExpenses.forEach((item) => {
-      if (!item.isRecurring || typeof item.recurringGroupId !== 'number') return;
-      const isPendingFromNow = item.status === 'PENDING' && item.tableIndex >= currentRoundIndex;
-      const existing = groups.get(item.recurringGroupId);
-      if (!existing) {
-        groups.set(item.recurringGroupId, {
-          groupId: item.recurringGroupId,
-          detail: item.detail,
-          amount: item.amount,
-          earliestMonth: item.tableIndex,
-          latestMonth: item.tableIndex,
-          pendingFromCurrentCount: isPendingFromNow ? 1 : 0,
-          nextActiveMonth: isPendingFromNow ? item.tableIndex : null,
-        });
-        return;
-      }
-      const isLatest = item.tableIndex >= existing.latestMonth;
-      const nextActiveMonth = isPendingFromNow
-        ? existing.nextActiveMonth === null
-          ? item.tableIndex
-          : Math.min(existing.nextActiveMonth, item.tableIndex)
-        : existing.nextActiveMonth;
-      groups.set(item.recurringGroupId, {
-        groupId: item.recurringGroupId,
-        detail: isLatest ? item.detail : existing.detail,
-        amount: isLatest ? item.amount : existing.amount,
-        earliestMonth: Math.min(existing.earliestMonth, item.tableIndex),
-        latestMonth: Math.max(existing.latestMonth, item.tableIndex),
-        pendingFromCurrentCount: existing.pendingFromCurrentCount + (isPendingFromNow ? 1 : 0),
-        nextActiveMonth,
-      });
-    });
-    return Array.from(groups.values()).sort((a, b) => a.detail.localeCompare(b.detail, 'th'));
-  }, [allHomeExpenses, currentRoundIndex]);
-  const recurringStartMonthOptions = useMemo(
-    () => tableIndexes.filter((tableIndex) => tableIndex >= currentRoundIndex),
-    [tableIndexes, currentRoundIndex],
-  );
   const tableExpense = useMemo(() => currentRows.reduce((sum, row) => sum + row.expense, 0), [currentRows]);
   const monthStarting = roundStartingByMonth[currentRoundIndex - 1] ?? snapshot.accountBalance;
   const monthRemaining = reserveByMonth[currentRoundIndex - 1] ?? monthStarting;
-  const pendingRows = currentRows.filter((row) => row.status === 'PENDING');
+  const pendingRows = currentRows.filter((row) => row.status === 'PENDING' && row.isOutstanding !== false);
 
   const closeAddExpenseDialog = () => {
     setIsAddExpenseOpen(false);
     setExpenseDetail('');
     setExpenseAmount('0');
+    setExpenseCardType('');
     setIsRecurringExpense(false);
   };
 
@@ -400,6 +385,7 @@ export default function Home() {
               detail,
               amount,
               status: 'PENDING',
+              ...(expenseCardType ? { cardType: expenseCardType } : {}),
               ...(isRecurringExpense ? { isRecurring: true, recurringGroupId: groupId } : {}),
             };
             return {
@@ -448,6 +434,7 @@ export default function Home() {
     setEditingArchivedExpense(item);
     setEditExpenseDetail(item.detail);
     setEditExpenseAmount(String(item.amount));
+    setEditExpenseCardType(item.cardType ?? '');
     setEditExpenseStatus(item.status);
   };
 
@@ -455,6 +442,7 @@ export default function Home() {
     setEditingArchivedExpense(null);
     setEditExpenseDetail('');
     setEditExpenseAmount('0');
+    setEditExpenseCardType('');
     setEditExpenseStatus('PAID');
   };
 
@@ -476,12 +464,13 @@ export default function Home() {
             [monthKey]: map(currentExpenses, (item): HomeExpense => {
               if (item.id !== editingArchivedExpense.id) return item;
               if (editExpenseStatus === 'PENDING') {
-                return { ...item, detail, amount, status: 'PENDING', paidAt: undefined };
+                return { ...item, detail, amount, cardType: editExpenseCardType || undefined, status: 'PENDING', paidAt: undefined };
               }
               return {
                 ...item,
                 detail,
                 amount,
+                cardType: editExpenseCardType || undefined,
                 status: 'PAID',
                 paidAt: item.paidAt ?? updatedAt,
               };
@@ -500,6 +489,7 @@ export default function Home() {
     setEditingPendingExpense(item);
     setEditPendingDetail(item.detail);
     setEditPendingAmount(String(item.amount));
+    setEditPendingCardType(item.cardType ?? '');
     setEditPendingScope('this');
   };
 
@@ -507,6 +497,7 @@ export default function Home() {
     setEditingPendingExpense(null);
     setEditPendingDetail('');
     setEditPendingAmount('0');
+    setEditPendingCardType('');
     setEditPendingScope('this');
   };
 
@@ -528,7 +519,7 @@ export default function Home() {
           const monthKey = String(fromTableIndex);
           const currentExpenses = nextExpensesByMonth[monthKey] ?? [];
           nextExpensesByMonth[monthKey] = map(currentExpenses, (item) =>
-            item.id === expenseId ? { ...item, detail, amount } : item,
+            item.id === expenseId ? { ...item, detail, amount, cardType: editPendingCardType || undefined } : item,
           );
         } else {
           for (const [monthKey, expenses] of Object.entries(nextExpensesByMonth)) {
@@ -536,7 +527,7 @@ export default function Home() {
             if (!Number.isFinite(monthIndex) || monthIndex < fromTableIndex) continue;
             nextExpensesByMonth[monthKey] = map(expenses, (item) =>
               item.recurringGroupId === recurringGroupId && item.status === 'PENDING' && !item.isCancelled
-                ? { ...item, detail, amount }
+                ? { ...item, detail, amount, cardType: editPendingCardType || undefined }
                 : item,
             );
           }
@@ -551,133 +542,6 @@ export default function Home() {
 
       setSnapshot(nextSnapshot);
       closePendingExpenseEdit();
-    })();
-  };
-
-  const openRecurringManager = () => {
-    setEditingRecurringGroupId(null);
-    setIsRecurringManagerOpen(true);
-  };
-
-  const closeRecurringManager = () => {
-    setIsRecurringManagerOpen(false);
-    setEditingRecurringGroupId(null);
-    setEditRecurringDetail('');
-    setEditRecurringAmount('0');
-    setEditRecurringStartMonth(currentRoundIndex);
-  };
-
-  const startEditRecurringGroup = (group: RecurringGroupSummary) => {
-    setEditingRecurringGroupId(group.groupId);
-    setEditRecurringDetail(group.detail);
-    setEditRecurringAmount(String(group.amount));
-    setEditRecurringStartMonth(Math.max(currentRoundIndex, group.nextActiveMonth ?? currentRoundIndex));
-  };
-
-  const cancelEditRecurringGroup = () => {
-    setEditingRecurringGroupId(null);
-    setEditRecurringDetail('');
-    setEditRecurringAmount('0');
-    setEditRecurringStartMonth(currentRoundIndex);
-  };
-
-  const saveRecurringGroupEdit = () => {
-    if (editingRecurringGroupId === null) return;
-    const detail = editRecurringDetail.trim();
-    const amount = Number(editRecurringAmount);
-    if (!detail || !Number.isFinite(amount) || amount < 0) return;
-    const groupId = editingRecurringGroupId;
-    const newStartMonth = Math.max(currentRoundIndex, editRecurringStartMonth);
-
-    void (async () => {
-      const updatedAt = nowTimestamp();
-      const nextSnapshot = await updateBudgetSnapshot((current) => {
-        const nextExpensesByMonth: Record<string, HomeExpense[]> = { ...(current.homeExpensesByMonth ?? {}) };
-        const totalTables = Math.max(current.totalTables, 1);
-
-        // Months from now up to the new start month should no longer carry this recurring
-        // item (this is what lets you "clean up" a month you already cancelled/deleted and
-        // push the series to start later instead).
-        for (let tableIndex = currentRoundIndex; tableIndex < newStartMonth; tableIndex += 1) {
-          const monthKey = String(tableIndex);
-          const monthExpenses = nextExpensesByMonth[monthKey] ?? [];
-          nextExpensesByMonth[monthKey] = monthExpenses.filter(
-            (item) => !(item.recurringGroupId === groupId && item.status === 'PENDING'),
-          );
-        }
-
-        // From the new start month onward: update existing pending occurrences with the new
-        // detail/amount, and fill in any month that doesn't have an occurrence yet.
-        for (let tableIndex = newStartMonth; tableIndex <= totalTables; tableIndex += 1) {
-          const monthKey = String(tableIndex);
-          const monthExpenses = nextExpensesByMonth[monthKey] ?? [];
-          const hasGroupItem = monthExpenses.some((item) => item.recurringGroupId === groupId);
-
-          if (hasGroupItem) {
-            nextExpensesByMonth[monthKey] = map(monthExpenses, (item) =>
-              item.recurringGroupId === groupId && item.status === 'PENDING' && !item.isCancelled
-                ? { ...item, detail, amount }
-                : item,
-            );
-          } else {
-            nextExpensesByMonth[monthKey] = [
-              ...monthExpenses,
-              {
-                id: groupId * 1000 + tableIndex,
-                detail,
-                amount,
-                status: 'PENDING' as const,
-                isRecurring: true,
-                recurringGroupId: groupId,
-              },
-            ];
-          }
-        }
-
-        return {
-          ...current,
-          homeExpensesByMonth: nextExpensesByMonth,
-          updatedAt,
-        };
-      });
-
-      setSnapshot(nextSnapshot);
-      cancelEditRecurringGroup();
-    })();
-  };
-
-  const openDeleteRecurringGroupDialog = (group: RecurringGroupSummary) => {
-    setDeletingRecurringGroup(group);
-  };
-
-  const closeDeleteRecurringGroupDialog = () => {
-    setDeletingRecurringGroup(null);
-  };
-
-  const confirmDeleteRecurringGroup = () => {
-    if (!deletingRecurringGroup) return;
-    const groupId = deletingRecurringGroup.groupId;
-
-    void (async () => {
-      const updatedAt = nowTimestamp();
-      const nextSnapshot = await updateBudgetSnapshot((current) => {
-        const nextExpensesByMonth: Record<string, HomeExpense[]> = { ...(current.homeExpensesByMonth ?? {}) };
-        for (const [monthKey, expenses] of Object.entries(nextExpensesByMonth)) {
-          nextExpensesByMonth[monthKey] = map(expenses, (item) =>
-            item.recurringGroupId === groupId && item.status === 'PENDING' && !item.isCancelled
-              ? { ...item, isCancelled: true }
-              : item,
-          );
-        }
-        return {
-          ...current,
-          homeExpensesByMonth: nextExpensesByMonth,
-          updatedAt,
-        };
-      });
-
-      setSnapshot(nextSnapshot);
-      closeDeleteRecurringGroupDialog();
     })();
   };
 
@@ -731,7 +595,7 @@ export default function Home() {
         </Box>
 
         <Box className={styles.pendingCard}>
-          <Typography className={styles.pendingTitle}>รายการที่ยัง PENDING</Typography>
+          <Typography className={styles.pendingTitle}>รายการยอดค้างที่ยัง PENDING</Typography>
           {pendingRows.length === 0 && <Typography className={styles.emptyText}>ไม่มีรายการค้างในเดือนนี้</Typography>}
           {pendingRows.length > 0 && (
             <Stack spacing={1}>
@@ -741,7 +605,7 @@ export default function Home() {
                     <Typography className={styles.pendingDetail}>
                       {row.itemNo}. {row.detail || '-'}
                       <Box component="span" className={`${styles.pendingMonthsBadge} ${getMonthsBadgeClassName(row.monthsLeft)}`}>
-                        เหลือ {row.monthsLeft} เดือน
+                        {row.monthsLeft === null ? '-' : `เหลือ ${row.monthsLeft} เดือน`}
                       </Box>
                       {row.cardType ? (
                         <Box component="span" className={styles.pendingCardTypeInline}>
@@ -751,6 +615,7 @@ export default function Home() {
                             alt={getCardLabel(row.cardType)}
                             width={14}
                             height={14}
+                            style={row.cardType === 'TTB' ? { width: 12, height: 6, borderRadius: 0 } : undefined}
                             className={styles.pendingCardIcon}
                           />
                           <span>{getCardLabel(row.cardType)}</span>
@@ -797,24 +662,6 @@ export default function Home() {
               <Button
                 size="small"
                 variant="outlined"
-                startIcon={<EventRepeatRoundedIcon fontSize="small" />}
-                onClick={openRecurringManager}
-                sx={{
-                  flexShrink: 0,
-                  borderColor: 'rgba(35, 45, 62, 0.24)',
-                  color: '#55606e',
-                  background: 'rgba(255, 255, 255, 0.76)',
-                  '&:hover': {
-                    borderColor: 'rgba(35, 45, 62, 0.4)',
-                    background: 'rgba(255, 255, 255, 0.94)',
-                  },
-                }}
-              >
-                แก้ไขยอดทำซ้ำ
-              </Button>
-              <Button
-                size="small"
-                variant="outlined"
                 startIcon={<ArchiveRoundedIcon fontSize="small" />}
                 onClick={() => setIsExpenseArchiveOpen(true)}
                 sx={{
@@ -842,6 +689,7 @@ export default function Home() {
                   <Box>
                     <Typography className={styles.pendingDetail}>
                       {index + 1}. {item.detail}
+                      <ExpenseCardIcon cardType={item.cardType} />
                       {item.isRecurring && (
                         <Box component="span" className={styles.recurringExpenseBadge}>
                           รายเดือน
@@ -923,6 +771,7 @@ export default function Home() {
                     <Box className={styles.expenseArchiveInfo}>
                       <Typography className={styles.pendingDetail}>
                         {index + 1}. {item.detail}
+                        <ExpenseCardIcon cardType={item.cardType} />
                         {item.isRecurring && (
                           <Box component="span" className={styles.recurringExpenseBadge}>
                             รายเดือน
@@ -985,6 +834,7 @@ export default function Home() {
                 slotProps={{ htmlInput: { min: 0, step: '0.01' } }}
                 fullWidth
               />
+              <ExpenseCardSelect value={editExpenseCardType} onChange={setEditExpenseCardType} />
               <TextField
                 size="small"
                 select
@@ -1041,6 +891,7 @@ export default function Home() {
                 slotProps={{ htmlInput: { min: 0, step: '0.01' } }}
                 fullWidth
               />
+              <ExpenseCardSelect value={editPendingCardType} onChange={setEditPendingCardType} />
               {editingPendingExpense?.isRecurring && (
                 <TextField
                   size="small"
@@ -1061,147 +912,6 @@ export default function Home() {
             <Button onClick={closePendingExpenseEdit} sx={{ color: '#229568' }}>ยกเลิก</Button>
             <Button variant="contained" onClick={savePendingExpenseEdit} sx={primaryGreenButtonSx}>
               บันทึกการแก้ไข
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        <Dialog open={isRecurringManagerOpen} onClose={closeRecurringManager} fullWidth maxWidth="sm">
-          <DialogTitle sx={{ pb: 0.8 }}>
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <EventRepeatRoundedIcon sx={{ color: '#55606e' }} />
-              <Box>
-                <Typography component="div" variant="h6" sx={{ fontWeight: 700 }}>
-                  แก้ไขยอดทำซ้ำ
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  จัดการยอดรายจ่ายที่ทำซ้ำทุกเดือน แก้ตรงนี้ได้แม้เดือนปัจจุบันจะถูกลบ/ยกเลิกไปแล้ว
-                </Typography>
-              </Box>
-            </Stack>
-          </DialogTitle>
-          <DialogContent sx={{ pt: '8px !important', maxHeight: '65vh' }}>
-            {editingRecurringGroupId === null && (
-              <>
-                {recurringGroups.length === 0 && (
-                  <Box className={styles.expenseArchiveEmpty}>ยังไม่มีรายจ่ายนอกตารางแบบทำซ้ำ</Box>
-                )}
-                {recurringGroups.length > 0 && (
-                  <Stack spacing={1}>
-                    {map(recurringGroups, (group) => (
-                      <Box key={group.groupId} className={styles.recurringGroupRow}>
-                        <Box className={styles.recurringGroupInfo}>
-                          <Typography className={styles.pendingDetail}>{group.detail}</Typography>
-                          <Typography className={styles.pendingMeta}>
-                            {formatNumber(group.amount)} THB/เดือน · เหลือค้าง {group.pendingFromCurrentCount} เดือน (ตั้งแต่{' '}
-                            {getRoundLabel(currentRoundIndex)})
-                          </Typography>
-                        </Box>
-                        <Box className={styles.recurringGroupActions}>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            startIcon={<EditRoundedIcon fontSize="small" />}
-                            onClick={() => startEditRecurringGroup(group)}
-                            className={styles.recurringGroupEditButton}
-                            sx={{
-                              borderColor: 'rgba(35, 45, 62, 0.24)',
-                              color: '#55606e',
-                              background: 'rgba(255, 255, 255, 0.76)',
-                              '&:hover': {
-                                borderColor: 'rgba(35, 45, 62, 0.4)',
-                                background: 'rgba(255, 255, 255, 0.94)',
-                              },
-                            }}
-                          >
-                            แก้ไข
-                          </Button>
-                          <Button
-                            size="small"
-                            color="error"
-                            variant="outlined"
-                            startIcon={<DeleteOutlineRoundedIcon fontSize="small" />}
-                            onClick={() => openDeleteRecurringGroupDialog(group)}
-                            className={styles.recurringGroupDeleteButton}
-                          >
-                            ลบ
-                          </Button>
-                        </Box>
-                      </Box>
-                    ))}
-                  </Stack>
-                )}
-              </>
-            )}
-            {editingRecurringGroupId !== null && (
-              <Stack spacing={2.5}>
-                <Typography variant="body2" color="text.secondary">
-                  แก้ยอด/รายละเอียด และเลือกเดือนเริ่มต้นใหม่ได้ถ้าต้องการเลื่อนรอบ มีผลเฉพาะเดือนที่ยังไม่จ่ายและ ไม่ได้ถูกยกเลิก
-                  เดือนก่อนหน้าเดือนปัจจุบันจะไม่ถูกแก้ไข
-                </Typography>
-                <TextField
-                  size="small"
-                  select
-                  label="เริ่มเดือน"
-                  value={editRecurringStartMonth}
-                  onChange={(event) => setEditRecurringStartMonth(Number(event.target.value))}
-                  helperText="เดือนก่อนหน้านี้ในรอบทำซ้ำจะถูกลบออก (ถ้ายังไม่จ่าย)"
-                  fullWidth
-                >
-                  {map(recurringStartMonthOptions, (tableIndex) => (
-                    <MenuItem key={tableIndex} value={tableIndex}>
-                      {getRoundLabel(tableIndex)}
-                    </MenuItem>
-                  ))}
-                </TextField>
-                <TextField
-                  size="small"
-                  label="รายละเอียด"
-                  value={editRecurringDetail}
-                  onChange={(event) => setEditRecurringDetail(event.target.value)}
-                  fullWidth
-                />
-                <TextField
-                  size="small"
-                  label="ค่าใช้จ่าย (THB)"
-                  type="number"
-                  value={editRecurringAmount}
-                  onChange={(event) => setEditRecurringAmount(event.target.value)}
-                  slotProps={{ htmlInput: { min: 0, step: '0.01' } }}
-                  fullWidth
-                />
-              </Stack>
-            )}
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            {editingRecurringGroupId === null ? (
-              <Button onClick={closeRecurringManager} sx={{ color: '#229568' }}>ปิด</Button>
-            ) : (
-              <>
-                <Button onClick={cancelEditRecurringGroup} sx={{ color: '#229568' }}>ย้อนกลับ</Button>
-                <Button variant="contained" onClick={saveRecurringGroupEdit} sx={primaryGreenButtonSx}>
-                  บันทึกการแก้ไข
-                </Button>
-              </>
-            )}
-          </DialogActions>
-        </Dialog>
-
-        <Dialog open={Boolean(deletingRecurringGroup)} onClose={closeDeleteRecurringGroupDialog} fullWidth maxWidth="xs">
-          <DialogTitle sx={{ pb: 0.8 }}>
-            <Typography component="div" variant="h6" sx={{ fontWeight: 700 }}>
-              ลบรายจ่ายทำซ้ำ
-            </Typography>
-          </DialogTitle>
-          <DialogContent sx={{ pt: '8px !important' }}>
-            <Typography variant="body2" color="text.secondary">
-              ยกเลิก &quot;{deletingRecurringGroup?.detail}&quot; ทุกเดือนที่ยังไม่จ่าย (รวมเดือนที่ค้างอยู่ก่อนหน้านี้ด้วย)
-              เดือนที่จ่ายไปแล้วจะยังอยู่ในประวัติเหมือนเดิม ยืนยันหรือไม่
-            </Typography>
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={closeDeleteRecurringGroupDialog}>ยกเลิก</Button>
-            <Button variant="contained" color="error" onClick={confirmDeleteRecurringGroup}>
-              ลบ
             </Button>
           </DialogActions>
         </Dialog>
@@ -1230,6 +940,7 @@ export default function Home() {
                 slotProps={{ htmlInput: { min: 0, step: '0.01' } }}
                 fullWidth
               />
+              <ExpenseCardSelect value={expenseCardType} onChange={setExpenseCardType} />
               <FormControlLabel
                 control={
                   <Checkbox checked={isRecurringExpense} onChange={(event) => setIsRecurringExpense(event.target.checked)} />

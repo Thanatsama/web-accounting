@@ -5,11 +5,13 @@ import map from 'lodash/map';
 import {
   Box,
   Button,
+  Checkbox,
   Container,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   InputAdornment,
   MenuItem,
   Stack,
@@ -44,12 +46,13 @@ type DisplayRow = {
   itemNo: number;
   detail: string;
   expense: number;
-  monthsLeft: number;
-  totalMonths: number;
+  monthsLeft: number | null;
+  totalMonths: number | null;
   compensation: number;
   source: string;
   cardType?: CardType;
   status: RowStatus;
+  isOutstanding?: boolean;
 };
 
 type PendingSummaryAggregateItem = {
@@ -82,7 +85,8 @@ function getRowStartMonth(row: BudgetRow): number {
   return Math.max(1, Math.floor(row.startMonth ?? 1));
 }
 
-function getRowEndMonth(row: BudgetRow): number {
+function getRowEndMonth(row: BudgetRow, throughMonth = getRowStartMonth(row)): number {
+  if (row.spreadMonths === null) return Math.max(getRowStartMonth(row), throughMonth);
   return getRowStartMonth(row) + Math.max(1, Math.floor(row.spreadMonths)) - 1;
 }
 
@@ -170,23 +174,24 @@ function buildDisplayRows(rows: BudgetRow[], tableIndex: number): DisplayRow[] {
     const row = rows[i];
     if (row.isCancelled) continue;
     const startMonth = getRowStartMonth(row);
-    const endMonth = getRowEndMonth(row);
+    const endMonth = getRowEndMonth(row, tableIndex);
     if (tableIndex >= startMonth && tableIndex <= endMonth) {
       result.push({
         id: row.id,
         detail: row.detail,
         expense: resolveExpenseByMonth(row, tableIndex),
-        monthsLeft: endMonth - tableIndex + 1,
-        totalMonths: Math.max(1, Math.floor(row.spreadMonths)),
+        monthsLeft: row.spreadMonths === null ? null : endMonth - tableIndex + 1,
+        totalMonths: row.spreadMonths === null ? null : Math.max(1, Math.floor(row.spreadMonths)),
         compensation: resolveCompensationByMonth(row, tableIndex),
         source: resolveSourceByMonth(row, tableIndex),
         cardType: resolveCardTypeByMonth(row, tableIndex),
         status: resolveStatusByMonth(row, tableIndex),
+        isOutstanding: row.isOutstanding,
       });
     }
   }
 
-  const sortedByMonthsLeft = [...result].sort((a, b) => a.monthsLeft - b.monthsLeft);
+  const sortedByMonthsLeft = [...result].sort((a, b) => (a.monthsLeft ?? Infinity) - (b.monthsLeft ?? Infinity));
   return map(sortedByMonthsLeft, (row, index) => ({
     ...row,
     itemNo: index + 1,
@@ -264,6 +269,8 @@ export default function TablePage() {
   const [detail, setDetail] = useState('');
   const [expense, setExpense] = useState('0');
   const [spreadMonths, setSpreadMonths] = useState('1');
+  const [hasNoMonthLimit, setHasNoMonthLimit] = useState(false);
+  const [isOutstanding, setIsOutstanding] = useState(true);
   const [itemStartMonth, setItemStartMonth] = useState(getMonthInputValue());
   const [compensation, setCompensation] = useState('0');
   const [source, setSource] = useState('');
@@ -275,6 +282,7 @@ export default function TablePage() {
   const [editSource, setEditSource] = useState('');
   const [editCardType, setEditCardType] = useState<CardTypeInput>('');
   const [editStatus, setEditStatus] = useState<RowStatus>('PENDING');
+  const [editIsOutstanding, setEditIsOutstanding] = useState(true);
   const currentDate = useCurrentDate();
   const formFieldSx: SxProps<Theme> = {
     '& .MuiOutlinedInput-root': {
@@ -370,6 +378,8 @@ export default function TablePage() {
     setDetail('');
     setExpense('0');
     setSpreadMonths('1');
+    setHasNoMonthLimit(false);
+    setIsOutstanding(true);
     setItemStartMonth(currentMonthValue);
     setCompensation('0');
     setSource('');
@@ -381,16 +391,16 @@ export default function TablePage() {
     event.preventDefault();
     void (async () => {
       const expenseNumber = Number(expense);
-      const spreadNumber = Number(spreadMonths);
+      const spreadNumber = hasNoMonthLimit ? null : Number(spreadMonths);
       const compensationNumber = Number(compensation);
       const startMonth = monthValueToRound(itemStartMonth);
 
       if (!Number.isFinite(expenseNumber) || expenseNumber < 0) return;
-      if (!Number.isFinite(spreadNumber) || spreadNumber < 1) return;
+      if (spreadNumber !== null && (!Number.isInteger(spreadNumber) || spreadNumber < 1)) return;
       if (!Number.isFinite(compensationNumber) || compensationNumber < 0) return;
       if (!Number.isFinite(startMonth) || startMonth < currentRoundIndex) return;
 
-      const normalizedSpread = Math.floor(spreadNumber);
+      const normalizedSpread = spreadNumber;
       const trimmedDetail = detail.trim();
       const nextDetail = ensureUniqueDetail(
         trimmedDetail,
@@ -402,13 +412,14 @@ export default function TablePage() {
         id: nowTimestamp(),
         detail: nextDetail,
         expense: expenseNumber,
-        expenseByMonth: buildDefaultExpenseByMonth(normalizedSpread, expenseNumber, startMonth),
+        expenseByMonth: normalizedSpread === null ? {} : buildDefaultExpenseByMonth(normalizedSpread, expenseNumber, startMonth),
         startMonth,
         spreadMonths: normalizedSpread,
         compensation: compensationNumber,
         source: source.trim(),
         cardType: cardType || undefined,
         status,
+        isOutstanding,
       };
 
       const nextSnapshot = await updateBudgetSnapshot((current) => {
@@ -448,7 +459,7 @@ export default function TablePage() {
 
   const updateRowField = (
     rowId: number,
-    patch: Partial<Pick<BudgetRow, 'detail' | 'status' | 'isCancelled' | 'cardType'>>,
+    patch: Partial<Pick<BudgetRow, 'detail' | 'status' | 'isCancelled' | 'cardType' | 'isOutstanding'>>,
     monthPatch?: {
       tableIndex: number;
       expense: number;
@@ -519,7 +530,7 @@ export default function TablePage() {
               monthPatch.cardType || undefined,
             )
           : nextRows;
-      const inferredTotalTables = propagatedRows.reduce((maxMonth, row) => Math.max(maxMonth, getRowEndMonth(row)), 1);
+      const inferredTotalTables = propagatedRows.reduce((maxMonth, row) => Math.max(maxMonth, getRowEndMonth(row, totalTables)), 1);
       const nextTotalTables = Math.max(totalTables, inferredTotalTables);
       if (nextTotalTables !== totalTables) {
         setTotalTables(nextTotalTables);
@@ -547,6 +558,7 @@ export default function TablePage() {
     setEditSource(monthSource);
     setEditCardType(monthCardType ?? '');
     setEditStatus(monthStatus);
+    setEditIsOutstanding(target.isOutstanding !== false);
     setEditingCanCancel(Boolean(target.planMeta) && !target.isCancelled);
     setIsEditOpen(true);
   };
@@ -582,6 +594,7 @@ export default function TablePage() {
       {
         detail: nextDetail,
         cardType: editCardType || undefined,
+        isOutstanding: editIsOutstanding,
       },
       {
         tableIndex: editingTableIndex,
@@ -620,7 +633,7 @@ export default function TablePage() {
 
     const updatedAt = nowTimestamp();
     const nextRows = rows.filter((row) => row.id !== deleteRowTarget.id);
-    const inferredTotalTables = nextRows.reduce((maxMonth, row) => Math.max(maxMonth, getRowEndMonth(row)), 1);
+    const inferredTotalTables = nextRows.reduce((maxMonth, row) => Math.max(maxMonth, getRowEndMonth(row, totalTables)), 1);
     const nextTotalTables = Math.max(1, inferredTotalTables);
 
     setRows(nextRows);
@@ -705,7 +718,7 @@ export default function TablePage() {
 
     tableIndexes.forEach((tableIndex) => {
       buildDisplayRows(rows, tableIndex)
-        .filter((row) => row.status === 'PENDING')
+        .filter((row) => row.status === 'PENDING' && row.isOutstanding !== false)
         .forEach((row) => {
           const originalRow = rows.find((item) => item.id === row.id);
           if (originalRow?.planMeta) return;
@@ -971,7 +984,7 @@ export default function TablePage() {
                 <Box>
                   <Typography className={styles.pendingSummarySectionTitle}>สรุปรวมสำหรับปิดยอดก่อนกำหนด</Typography>
                   <Typography className={styles.pendingSummarySubtle}>
-                    รวมเฉพาะรายการสินค้าที่ยัง `PENDING` และไม่รวม plan
+                    รวมเฉพาะรายการที่นับเป็นยอดค้างและยัง PENDING โดยไม่รวม plan
                   </Typography>
                 </Box>
                 <Box className={styles.pendingSummaryTotalPill}>
@@ -1136,17 +1149,26 @@ export default function TablePage() {
                   slotProps={{ htmlInput: { min: currentMonthValue } }}
                   sx={formFieldSx}
                 />
-                <TextField
-                  size="small"
-                  fullWidth
-                  label="จำนวนเดือน"
-                  type="number"
-                  value={spreadMonths}
-                  onChange={(event) => setSpreadMonths(event.target.value)}
-                  helperText={`เริ่มที่ ${getRoundLabel(selectedStartRound)} และถ้ารวมเกิน ${totalTables} เดือน ระบบจะเพิ่มจำนวนเดือนทั้งหมดให้อัตโนมัติ`}
-                  slotProps={{ htmlInput: { min: 1 } }}
-                  sx={formFieldSx}
-                />
+                <Box>
+                  <TextField
+                    size="small"
+                    fullWidth
+                    label="จำนวนเดือน"
+                    type="number"
+                    value={hasNoMonthLimit ? '' : spreadMonths}
+                    disabled={hasNoMonthLimit}
+                    onChange={(event) => setSpreadMonths(event.target.value)}
+                    helperText={hasNoMonthLimit
+                      ? 'หักอัตโนมัติทุกเดือนตั้งแต่เดือนเริ่ม โดยแสดงจำนวนเดือนเป็น -'
+                      : `เริ่มที่ ${getRoundLabel(selectedStartRound)} และถ้ารวมเกิน ${totalTables} เดือน ระบบจะเพิ่มจำนวนเดือนทั้งหมดให้อัตโนมัติ`}
+                    slotProps={{ htmlInput: { min: 1, step: 1 } }}
+                    sx={formFieldSx}
+                  />
+                  <FormControlLabel
+                    control={<Checkbox checked={hasNoMonthLimit} onChange={(event) => setHasNoMonthLimit(event.target.checked)} />}
+                    label="ไม่มีจำนวนเดือน (หักอัตโนมัติ)"
+                  />
+                </Box>
                 <TextField
                   size="small"
                   fullWidth
@@ -1180,6 +1202,15 @@ export default function TablePage() {
                     </MenuItem>
                   ))}
                 </TextField>
+                <Box>
+                  <FormControlLabel
+                    control={<Checkbox checked={isOutstanding} onChange={(event) => setIsOutstanding(event.target.checked)} />}
+                    label="นับเป็นยอดค้าง"
+                  />
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    ปิดสำหรับเงินฝากประจำหรือเงินออม ยอดยังหักจากเงินคงเหลือ แต่ไม่รวมในยอดค้าง
+                  </Typography>
+                </Box>
                 <TextField
                   size="small"
                   fullWidth
@@ -1287,6 +1318,15 @@ export default function TablePage() {
                   </MenuItem>
                 ))}
               </TextField>
+              <Box>
+                <FormControlLabel
+                  control={<Checkbox checked={editIsOutstanding} onChange={(event) => setEditIsOutstanding(event.target.checked)} />}
+                  label="นับเป็นยอดค้าง"
+                />
+                <Typography variant="caption" color="text.secondary" display="block">
+                  มีผลกับรายการนี้ทุกเดือน เมื่อปิด ยอดยังหักจากเงินคงเหลือ แต่ไม่รวมในยอดค้าง
+                </Typography>
+              </Box>
               <TextField
                 size="small"
                 fullWidth

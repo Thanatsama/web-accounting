@@ -14,6 +14,8 @@ export const CARD_BRAND_META: Record<CardType, CardBrandMeta> = {
   FIRST_CHOICE: { label: "First Choice", icon: "/card-icons/first-choice.webp" },
   UOB_ONE: { label: "UOB One", icon: "/card-icons/uob-one.png" },
   SHOPPEE: { label: "Shopee", icon: "/card-icons/Shopee.png" },
+  TTB: { label: "TTB", icon: "/card-icons/ttb.png" },
+  HOME_PRO: { label: "HomePro", icon: "/card-icons/home-pro.png" },
 };
 
 export const CARD_TYPE_SELECT_OPTIONS: Array<{ value: CardTypeInput; label: string }> = [

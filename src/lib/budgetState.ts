@@ -1,5 +1,5 @@
 export type RowStatus = "PENDING" | "PAID";
-export type CardType = "JCB" | "THE_1" | "CARD_X" | "FIRST_CHOICE" | "UOB_ONE" | "SHOPPEE";
+export type CardType = "JCB" | "THE_1" | "CARD_X" | "FIRST_CHOICE" | "UOB_ONE" | "SHOPPEE" | "TTB" | "HOME_PRO";
 
 export const CARD_TYPE_OPTIONS: Array<{ value: CardType; label: string }> = [
   { value: "JCB", label: "JCB" },
@@ -8,6 +8,8 @@ export const CARD_TYPE_OPTIONS: Array<{ value: CardType; label: string }> = [
   { value: "FIRST_CHOICE", label: "First Choice" },
   { value: "UOB_ONE", label: "UOB One" },
   { value: "SHOPPEE", label: "Shopee" },
+  { value: "TTB", label: "TTB" },
+  { value: "HOME_PRO", label: "HomePro" },
 ];
 
 export type BudgetRow = {
@@ -16,7 +18,8 @@ export type BudgetRow = {
   expense: number;
   expenseByMonth?: Record<string, number>;
   startMonth?: number;
-  spreadMonths: number;
+  // null represents an ongoing automatic deduction with no installment term.
+  spreadMonths: number | null;
   compensation: number;
   compensationByMonth?: Record<string, number>;
   source: string;
@@ -25,6 +28,8 @@ export type BudgetRow = {
   cardTypeByMonth?: Record<string, CardType | null>;
   status: RowStatus;
   statusByMonth?: Record<string, RowStatus>;
+  // Existing rows count as outstanding unless explicitly opted out.
+  isOutstanding?: boolean;
   isCancelled?: boolean;
   planMeta?: {
     planId: string;
@@ -41,6 +46,7 @@ export type HomeExpense = {
   id: number;
   detail: string;
   amount: number;
+  cardType?: CardType;
   status: RowStatus;
   paidAt?: number;
   isRecurring?: boolean;

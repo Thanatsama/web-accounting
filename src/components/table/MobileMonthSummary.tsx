@@ -12,7 +12,8 @@ type MobileMonthSummaryProps = {
   rows: MonthDisplayRow[];
 };
 
-function getMonthsBadgeClassName(monthsLeft: number): string {
+function getMonthsBadgeClassName(monthsLeft: number | null): string {
+  if (monthsLeft === null) return styles.mobileMonthsBadgeBlue;
   if (monthsLeft <= 1) return styles.mobileMonthsBadgeGreen;
   if (monthsLeft <= 5) return styles.mobileMonthsBadgeYellow;
   return styles.mobileMonthsBadgeBlue;
@@ -27,7 +28,7 @@ export default function MobileMonthSummary({ rows }: MobileMonthSummaryProps) {
           <Typography className={styles.mobileItemTitle}>
             {row.itemNo}. {row.detail || '-'}
             <span className={`${styles.mobileMonthsBadge} ${getMonthsBadgeClassName(row.monthsLeft)}`}>
-              เหลือ {row.monthsLeft} เดือน
+              {row.monthsLeft === null ? '-' : `เหลือ ${row.monthsLeft} เดือน`}
             </span>
             {row.cardType ? (
               <span className={styles.mobileCardTypeInline}>
@@ -37,6 +38,7 @@ export default function MobileMonthSummary({ rows }: MobileMonthSummaryProps) {
                   alt={getCardLabel(row.cardType)}
                   width={13}
                   height={13}
+                  style={row.cardType === 'TTB' ? { width: 10, height: 5, borderRadius: 0 } : undefined}
                   className={styles.mobileCardIcon}
                 />
                 <span>{getCardLabel(row.cardType)}</span>
