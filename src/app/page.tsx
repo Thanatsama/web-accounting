@@ -192,7 +192,11 @@ function buildRoundRows(rows: BudgetRow[], roundIndex: number): RoundRow[] {
     const end = getRowEndMonth(row, roundIndex);
     return roundIndex >= start && roundIndex <= end;
   });
-  const sortedRows = [...activeRows].sort((a, b) => (a.spreadMonths ?? Infinity) - (b.spreadMonths ?? Infinity));
+  const sortedRows = [...activeRows].sort((a, b) => {
+    const aMonths = a.spreadMonths ?? Number.MAX_SAFE_INTEGER;
+    const bMonths = b.spreadMonths ?? Number.MAX_SAFE_INTEGER;
+    return aMonths - bMonths;
+  });
   return map(sortedRows, (row, index) => ({
     id: row.id,
     itemNo: index + 1,
@@ -353,7 +357,17 @@ export default function Home() {
   const tableExpense = useMemo(() => currentRows.reduce((sum, row) => sum + row.expense, 0), [currentRows]);
   const monthStarting = roundStartingByMonth[currentRoundIndex - 1] ?? snapshot.accountBalance;
   const monthRemaining = reserveByMonth[currentRoundIndex - 1] ?? monthStarting;
-  const pendingRows = currentRows.filter((row) => row.status === 'PENDING' && row.isOutstanding !== false);
+  const currentPendingRows = currentRows.filter((row) => row.status === 'PENDING');
+  const nextRoundIndex = currentRoundIndex + 1 <= snapshot.totalTables ? currentRoundIndex + 1 : null;
+  const nextPendingRows = useMemo(
+    () =>
+      nextRoundIndex === null
+        ? []
+        : buildRoundRows(snapshot.rows, nextRoundIndex).filter((row) => row.status === 'PENDING'),
+    [snapshot.rows, nextRoundIndex],
+  );
+  const isShowingNextRound = currentPendingRows.length === 0 && nextPendingRows.length > 0 && nextRoundIndex !== null;
+  const pendingRows = isShowingNextRound ? nextPendingRows : currentPendingRows;
 
   const closeAddExpenseDialog = () => {
     setIsAddExpenseOpen(false);
@@ -596,6 +610,11 @@ export default function Home() {
 
         <Box className={styles.pendingCard}>
           <Typography className={styles.pendingTitle}>รายการยอดค้างที่ยัง PENDING</Typography>
+          {isShowingNextRound && nextRoundIndex !== null && (
+            <Typography className={styles.emptyText} sx={{ mb: 1 }}>
+              จ่ายครบทุกรายการของเดือนนี้แล้ว · แสดงรายการของ {getRoundLabel(nextRoundIndex)}
+            </Typography>
+          )}
           {pendingRows.length === 0 && <Typography className={styles.emptyText}>ไม่มีรายการค้างในเดือนนี้</Typography>}
           {pendingRows.length > 0 && (
             <Stack spacing={1}>

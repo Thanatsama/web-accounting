@@ -191,7 +191,9 @@ function buildDisplayRows(rows: BudgetRow[], tableIndex: number): DisplayRow[] {
     }
   }
 
-  const sortedByMonthsLeft = [...result].sort((a, b) => (a.monthsLeft ?? Infinity) - (b.monthsLeft ?? Infinity));
+  const sortedByMonthsLeft = [...result].sort(
+    (a, b) => (a.monthsLeft ?? Number.MAX_SAFE_INTEGER) - (b.monthsLeft ?? Number.MAX_SAFE_INTEGER),
+  );
   return map(sortedByMonthsLeft, (row, index) => ({
     ...row,
     itemNo: index + 1,
